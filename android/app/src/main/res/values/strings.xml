@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">TikGood</string>
+    <string name="accessibility_service_description">
+        TikGood intercepts TikTok launches and asks if you\'d like to open TikGood instead.
+    </string>
+</resources>

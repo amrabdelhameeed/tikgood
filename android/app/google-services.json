@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "115578057899",
+    "project_id": "tikgood",
+    "storage_bucket": "tikgood.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:115578057899:android:f68ba93260478676a773ee",
+        "android_client_info": {
+          "package_name": "id.amrabdelhameed.tikgood"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBXMLJ5J9fVBq9TQmLRicUUcQSW5tZEe-Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
