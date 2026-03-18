@@ -1,0 +1,95 @@
+MIT License
+
+Copyright (c) 2024 TikGood
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+## Third-Party Licenses
+
+This project uses the following third-party packages. For their respective licenses, please refer to their individual repositories:
+
+### Flutter & Dart Packages
+
+| Package | License | Purpose |
+|---------|---------|---------|
+| flutter_bloc | MIT | State management |
+| firebase_core | Apache 2.0 | Firebase initialization |
+| firebase_auth | Apache 2.0 | Authentication |
+| firebase_storage | Apache 2.0 | File storage |
+| cloud_firestore | Apache 2.0 | Database |
+| firebase_analytics | Apache 2.0 | Analytics |
+| firebase_crashlytics | Apache 2.0 | Crash reporting |
+| firebase_messaging | Apache 2.0 | Push notifications |
+| media_kit | MIT | Video playback |
+| hive_flutter | Apache 2.0 | Local database |
+| easy_localization | MIT | Internationalization |
+| go_router | MIT | Navigation |
+| notion_db_sdk | MIT | Notion integration |
+| whisper_flutter_new | MIT | Speech-to-text |
+| record | MIT | Audio/video recording |
+| pdf | Apache 2.0 | PDF generation |
+| ffmpeg_kit_flutter_new | LGPL-3.0 | Media processing |
+| flutter_secure_storage | MIT | Secure storage |
+| path_provider | MIT | File system paths |
+| image_picker | BSD-3-Clause | Image selection |
+| file_picker | MIT | File selection |
+| shared_preferences | BSD-3-Clause | Key-value storage |
+| permission_handler | MIT | Runtime permissions |
+| upgrader | MIT | App updates |
+| uuid | MIT | Unique ID generation |
+| video_thumbnail | Apache 2.0 | Video thumbnails |
+| waveform_flutter | MIT | Audio waveforms |
+| lottie | Apache 2.0 | Animations |
+| flutter_svg | MIT | SVG rendering |
+| intl | BSD-3-Clause | Internationalization |
+| crypto | BSD-3-Clause | Cryptography |
+| http | BSD-3-Clause | HTTP client |
+| avatar_plus | MIT | Avatar widgets |
+| clarity_flutter | MIT | Analytics |
+| sensors_plus | BSD-3-Clause | Device sensors |
+| android_pip | MIT | Picture-in-Picture |
+| printing | MIT | Print functionality |
+| flutter_screenutil | MIT | Screen utilities |
+
+---
+
+## Disclaimer
+
+This software is provided "as is" without warranty of any kind. The authors and copyright holders shall not be liable for any claims, damages, or other liabilities arising from or related to the software.
+
+By using this software, you agree to comply with all applicable laws and regulations regarding data privacy, user consent, and content distribution.
+
+---
+
+## Contact
+
+For licensing inquiries or commercial usage permissions, please contact:
+
+- **Email**: legal@tikgood.app
+- **Website**: https://tikgood.app
+
+---
+
+<div align="center">
+
+**TikGood** - Learn by scrolling, remember by noting.
+
+</div>
