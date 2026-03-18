@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SECURITY: Cleartext HTTP disabled by default. Only legacy servers whitelisted. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+    <!-- Temporary exceptions for legacy HTTP servers — remove once HTTPS is deployed -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">arabfinance.com</domain>
+        <domain includeSubdomains="false">164.160.104.175</domain>
+    </domain-config>
+</network-security-config>
