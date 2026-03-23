@@ -1,9 +1,33 @@
+import 'dart:async';
+
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:tikgood/core/utils/accessibility_intercept_service.dart';
 import '../../../../core/database/storage_service.dart';
 import '../../../notes/data/datasources/notion_service.dart';
+import '../../../goals/data/services/goal_service.dart';
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  TikTok Design Tokens
+// ─────────────────────────────────────────────────────────────────────────────
+const _kBg = Color(0xFF000000);
+const _kSurface = Color(0xFF111111);
+const _kSurface2 = Color(0xFF1A1A1A);
+const _kBorder = Color(0xFF2A2A2A);
+const _kRed = Color(0xFFFE2C55);
+const _kCyan = Color(0xFF25F4EE);
+const _kWhite = Colors.white;
+const _kWhite60 = Color(0x99FFFFFF);
+const _kWhite30 = Color(0x4DFFFFFF);
+const _kWhite12 = Color(0x1FFFFFFF);
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Auto-save debounce duration
+// ─────────────────────────────────────────────────────────────────────────────
+const _kDebounceDuration = Duration(milliseconds: 800);
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -13,29 +37,41 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, TickerProviderStateMixin {
   late TextEditingController _apiKeyController;
   late TextEditingController _dbIdController;
   late TextEditingController _cloudNameController;
   late TextEditingController _uploadPresetController;
 
+  // Debounce timers for auto-save
+  Timer? _apiKeyTimer;
+  Timer? _cloudNameTimer;
+  Timer? _uploadPresetTimer;
+
+  // Save-indicator animation controllers
+  late AnimationController _saveIndicatorCtrl;
+  late Animation<double> _saveIndicatorOpacity;
+
   List<Map<String, String>> _availableDatabases = [];
   bool _isFetching = false;
-  bool _isSyncing = false;
   bool _obscureKey = true;
-
-  // ── Intercept state ────────────────────────────────────────────────────────
   bool _interceptEnabled = false;
+  bool _showSaved = false;
+  bool _goalReminderEnabled = true;
 
-  static const double _hPadding = 16.0;
-  static const Color _surface = Color(0xFF121212);
-  static const Color _accent = Color(0xFFFE2C55);
-  static const Color _divider = Color(0xFF252525);
+  static const String _notionApiKeyVideoUrl =
+      'https://www.youtube.com/watch?v=d4UeQVHB0vo';
+  static const String _notionApiKeyVideoTitle = 'How to get API Key';
+  static const String _cloudinaryUploadPresetVideoUrl =
+      'https://www.youtube.com/watch?v=r1g5UIhaw5k';
+  static const String _cloudinaryUploadPresetVideoTitle =
+      'How to create upload preset and get the cloud name';
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+
     final storage = context.read<StorageService>();
     _apiKeyController =
         TextEditingController(text: storage.getNotionApiKey() ?? '');
@@ -45,24 +81,99 @@ class _SettingsPageState extends State<SettingsPage>
         TextEditingController(text: storage.getCloudinaryCloudName() ?? '');
     _uploadPresetController =
         TextEditingController(text: storage.getCloudinaryUploadPreset() ?? '');
+
+    // Save-indicator fade animation
+    _saveIndicatorCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _saveIndicatorOpacity = CurvedAnimation(
+      parent: _saveIndicatorCtrl,
+      curve: Curves.easeOut,
+    );
+
+    // Wire up auto-save listeners
+    _apiKeyController.addListener(_onApiKeyChanged);
+    _cloudNameController.addListener(_onCloudNameChanged);
+    _uploadPresetController.addListener(_onUploadPresetChanged);
+
     _checkInterceptStatus();
+
+    // Initialize goal reminder setting
+    final goalService = context.read<GoalService>();
+    _goalReminderEnabled = goalService.getGoalReminderEnabled();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _apiKeyController.dispose();
+    _apiKeyTimer?.cancel();
+    _cloudNameTimer?.cancel();
+    _uploadPresetTimer?.cancel();
+    _saveIndicatorCtrl.dispose();
+    _apiKeyController
+      ..removeListener(_onApiKeyChanged)
+      ..dispose();
     _dbIdController.dispose();
-    _cloudNameController.dispose();
-    _uploadPresetController.dispose();
+    _cloudNameController
+      ..removeListener(_onCloudNameChanged)
+      ..dispose();
+    _uploadPresetController
+      ..removeListener(_onUploadPresetChanged)
+      ..dispose();
     super.dispose();
   }
 
-  // Re-check when user comes back from Accessibility Settings
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) _checkInterceptStatus();
   }
+
+  // ── Auto-save handlers ────────────────────────────────────────────────────
+
+  void _onApiKeyChanged() {
+    _apiKeyTimer?.cancel();
+    _apiKeyTimer = Timer(_kDebounceDuration, () async {
+      final storage = context.read<StorageService>();
+      await storage.saveNotionApiKey(_apiKeyController.text.trim());
+      _flashSaved();
+    });
+  }
+
+  void _onCloudNameChanged() {
+    _cloudNameTimer?.cancel();
+    _cloudNameTimer = Timer(_kDebounceDuration, () async {
+      final storage = context.read<StorageService>();
+      await storage.saveCloudinaryCloudName(_cloudNameController.text.trim());
+      _flashSaved();
+    });
+  }
+
+  void _onUploadPresetChanged() {
+    _uploadPresetTimer?.cancel();
+    _uploadPresetTimer = Timer(_kDebounceDuration, () async {
+      final storage = context.read<StorageService>();
+      await storage
+          .saveCloudinaryUploadPreset(_uploadPresetController.text.trim());
+      _flashSaved();
+    });
+  }
+
+  void _flashSaved() {
+    if (!mounted) return;
+    setState(() => _showSaved = true);
+    _saveIndicatorCtrl.forward(from: 0).then((_) {
+      Future.delayed(const Duration(seconds: 1), () {
+        if (mounted) {
+          _saveIndicatorCtrl.reverse().then((_) {
+            if (mounted) setState(() => _showSaved = false);
+          });
+        }
+      });
+    });
+  }
+
+  // ── Intercept ─────────────────────────────────────────────────────────────
 
   Future<void> _checkInterceptStatus() async {
     final enabled = await AccessibilityInterceptService.isServiceEnabled();
@@ -71,130 +182,124 @@ class _SettingsPageState extends State<SettingsPage>
 
   Future<void> _toggleIntercept(bool value) async {
     if (value) {
-      // Request overlay permission first, then open accessibility settings
       await AccessibilityInterceptService.requestOverlayPermission();
       await AccessibilityInterceptService.openAccessibilitySettings();
-      // Status will update via didChangeAppLifecycleState on return
     } else {
-      // Direct them to disable it in accessibility settings
       await AccessibilityInterceptService.openAccessibilitySettings();
     }
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  //  BUILD
+  // ─────────────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: _kBg,
       appBar: _buildAppBar(),
       body: ListView(
         physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: const EdgeInsets.only(bottom: 48),
         children: [
-          _buildSectionLabel('INTEGRATIONS'),
-          _buildSettingsGroup([
-            _buildInputTile(
-              label: 'Notion API Key',
-              controller: _apiKeyController,
-              obscure: _obscureKey,
-              suffix: _buildVisibilityIcon(),
-            ),
-            _buildInputTile(
-              label: 'Page ID',
-              controller: _dbIdController,
-              hint: 'Paste ID or select...',
-            ),
-            _buildDatabasePickerTile(),
-          ]),
-          _buildSectionLabel('STORAGE'),
-          _buildSettingsGroup([
-            _buildInputTile(
-                label: 'Cloud Name', controller: _cloudNameController),
-            _buildInputTile(
-                label: 'Upload Preset', controller: _uploadPresetController),
-          ]),
-
-          // ── NEW: Focus section ───────────────────────────────────────────
-          _buildSectionLabel('FOCUS'),
-          _buildSettingsGroup([
-            _buildInterceptTile(),
-          ]),
-          // ── End Focus section ────────────────────────────────────────────
-
-          _buildSectionLabel('PROFILE'),
-          _buildSettingsGroup([
-            _buildLikedVideosTile(),
-          ]),
+          _buildSection(
+            label: 'settings_section_notion'.tr(),
+            subtitle: 'settings_notion_subtitle'.tr(),
+            icon: Icons.link_rounded,
+            iconColor: _kCyan,
+            children: [
+              _buildField(
+                label: 'settings_api_key'.tr(),
+                controller: _apiKeyController,
+                obscure: _obscureKey,
+                suffix: _buildEyeIcon(),
+                hint: 'secret_…',
+              ),
+              _buildDivider(),
+              _buildHelpLink(
+                  url: _notionApiKeyVideoUrl, title: _notionApiKeyVideoTitle),
+              _buildDivider(),
+              _buildPageFetchRow(),
+            ],
+          ),
+          _buildSection(
+            label: 'settings_section_cloudinary'.tr(),
+            subtitle: 'settings_cloudinary_subtitle'.tr(),
+            icon: Icons.cloud_upload_rounded,
+            iconColor: _kRed,
+            children: [
+              _buildField(
+                  label: 'settings_cloud_name'.tr(),
+                  controller: _cloudNameController,
+                  hint: 'my-cloud'),
+              _buildDivider(),
+              _buildField(
+                  label: 'settings_upload_preset'.tr(),
+                  controller: _uploadPresetController,
+                  hint: 'unsigned_preset'),
+              _buildDivider(),
+              _buildHelpLink(
+                  url: _cloudinaryUploadPresetVideoUrl,
+                  title: _cloudinaryUploadPresetVideoTitle),
+            ],
+          ),
+          _buildSection(
+            label: 'settings_section_focus'.tr(),
+            subtitle: 'settings_focus_subtitle'.tr(),
+            icon: Icons.block_rounded,
+            iconColor: _kRed,
+            children: [
+              _buildInterceptRow(),
+            ],
+          ),
+          _buildSection(
+            label: 'settings_section_streak'.tr(),
+            subtitle: 'settings_streak_subtitle'.tr(),
+            icon: Icons.local_fire_department_rounded,
+            iconColor: _kRed,
+            children: [
+              _buildNavRow(
+                label: 'settings_streak_nav'.tr(),
+                onTap: () => context.push('/streak'),
+              ),
+            ],
+          ),
+          _buildSection(
+            label: 'Goal Reminder',
+            subtitle: 'Set a goal when you open the app',
+            icon: Icons.flag_rounded,
+            iconColor: _kCyan,
+            children: [
+              _buildGoalReminderRow(),
+              _buildDivider(),
+              _buildNavRow(
+                label: 'View all goals',
+                onTap: () => context.push('/goals'),
+              ),
+            ],
+          ),
+          _buildSection(
+            label: 'settings_section_profile'.tr(),
+            subtitle: null,
+            icon: Icons.person_rounded,
+            iconColor: _kWhite60,
+            children: [
+              _buildNavRow(
+                label: 'settings_liked_videos'.tr(),
+                onTap: () => context.push('/liked-videos'),
+              ),
+            ],
+          ),
           const SizedBox(height: 32),
-          _buildActionButtons(),
-          const SizedBox(height: 40),
-          _buildFooter(),
+          // _buildFooter(),
         ],
       ),
     );
   }
 
-  // ── Intercept tile ─────────────────────────────────────────────────────────
-  Widget _buildInterceptTile() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          // Icon badge
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: _accent.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child:
-                const Icon(Icons.swap_horiz_rounded, color: _accent, size: 19),
-          ),
-          const SizedBox(width: 12),
-          // Label + subtitle
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Intercept TikTok',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  _interceptEnabled
-                      ? 'Active — prompts when TikTok opens'
-                      : 'Opens TikGood instead of TikTok',
-                  style: TextStyle(
-                    color: _interceptEnabled
-                        ? _accent.withOpacity(0.8)
-                        : Colors.white38,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Toggle
-          Switch(
-            value: _interceptEnabled,
-            onChanged: _toggleIntercept,
-            activeColor: _accent,
-            activeTrackColor: _accent.withOpacity(0.25),
-            inactiveThumbColor: Colors.white24,
-            inactiveTrackColor: Colors.white10,
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Rest of existing UI (unchanged) ───────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
+  //  APP BAR
+  // ─────────────────────────────────────────────────────────────────────────
 
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
@@ -206,48 +311,142 @@ class _SettingsPageState extends State<SettingsPage>
               fontSize: 17, fontWeight: FontWeight.w700, letterSpacing: -0.5)),
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),
-        child: Container(color: _divider, height: 0.5),
+        child: Container(color: Color(0xFF2A2A2A), height: 0.5),
       ),
     );
   }
 
-  Widget _buildSectionLabel(String text) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(_hPadding, 24, _hPadding, 8),
-      child: Text(text,
-          style: const TextStyle(
-              color: Colors.white38,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1.1)),
+  Widget _buildAppBarTitle() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Text(
+          'Settings',
+          style: TextStyle(
+            color: _kWhite,
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.3,
+          ),
+        ),
+        const SizedBox(width: 8),
+        // Auto-saved pill indicator
+        AnimatedBuilder(
+          animation: _saveIndicatorOpacity,
+          builder: (_, __) => Opacity(
+            opacity: _saveIndicatorOpacity.value,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: _kCyan.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: _kCyan.withOpacity(0.4), width: 0.8),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.check_rounded, color: _kCyan, size: 11),
+                  SizedBox(width: 3),
+                  Text(
+                    'Saved',
+                    style: TextStyle(
+                      color: _kCyan,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildSettingsGroup(List<Widget> children) {
+  // ─────────────────────────────────────────────────────────────────────────
+  //  BRAND DIVIDER  (TikTok red/cyan shadow bar)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  Widget _buildBrandDivider() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: _hPadding),
-      decoration: BoxDecoration(
-          color: _surface, borderRadius: BorderRadius.circular(12)),
-      child: Column(
-        children: children.asMap().entries.map((entry) {
-          final idx = entry.key;
-          final child = entry.value;
-          return Column(
-            children: [
-              child,
-              if (idx != children.length - 1)
-                const Padding(
-                  padding: EdgeInsets.only(left: 16),
-                  child: Divider(color: _divider, height: 1),
-                ),
-            ],
-          );
-        }).toList(),
+      height: 3,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [_kCyan, _kRed],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
       ),
     );
   }
 
-  Widget _buildInputTile({
+  // ─────────────────────────────────────────────────────────────────────────
+  //  SECTION
+  // ─────────────────────────────────────────────────────────────────────────
+
+  Widget _buildSection({
+    required String label,
+    required String? subtitle,
+    required IconData icon,
+    required Color iconColor,
+    required List<Widget> children,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Section header
+          Row(
+            children: [
+              Icon(icon, color: iconColor, size: 14),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: iconColor,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.5,
+                ),
+              ),
+            ],
+          ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 3),
+            Padding(
+              padding: const EdgeInsets.only(left: 20),
+              child: Text(
+                subtitle,
+                style: const TextStyle(
+                  color: _kWhite30,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 10),
+          // Card
+          Container(
+            decoration: BoxDecoration(
+              color: _kSurface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _kBorder, width: 0.8),
+            ),
+            clipBehavior: Clip.hardEdge,
+            child: Column(children: children),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  //  FIELD TILE
+  // ─────────────────────────────────────────────────────────────────────────
+
+  Widget _buildField({
     required String label,
     required TextEditingController controller,
     String? hint,
@@ -255,26 +454,38 @@ class _SettingsPageState extends State<SettingsPage>
     Widget? suffix,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Row(
         children: [
-          Text(label,
-              style: const TextStyle(color: Colors.white, fontSize: 15)),
-          const Spacer(),
+          SizedBox(
+            width: 110,
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: _kWhite,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
           Expanded(
-            flex: 4,
             child: TextField(
               controller: controller,
               obscureText: obscure,
               textAlign: TextAlign.end,
-              cursorColor: _accent,
-              style: const TextStyle(color: Colors.white60, fontSize: 14),
+              cursorColor: _kCyan,
+              style: const TextStyle(
+                color: _kWhite60,
+                fontSize: 13,
+                fontFamily: 'monospace',
+              ),
               decoration: InputDecoration(
                 hintText: hint ?? 'Required',
-                hintStyle: const TextStyle(color: Colors.white12),
+                hintStyle: const TextStyle(color: _kWhite12, fontSize: 13),
                 border: InputBorder.none,
                 suffixIcon: suffix,
                 isDense: true,
+                contentPadding: EdgeInsets.zero,
               ),
             ),
           ),
@@ -283,185 +494,376 @@ class _SettingsPageState extends State<SettingsPage>
     );
   }
 
-  Widget _buildDatabasePickerTile() {
-    return InkWell(
-      onTap: _isFetching ? null : _fetchDatabases,
-      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          children: [
-            const Text('Select Page',
-                style: TextStyle(color: Colors.white, fontSize: 15)),
-            const Spacer(),
-            Expanded(
-              flex: 4,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Flexible(
-                    child: _isFetching
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2, color: _accent),
-                          )
-                        : (_availableDatabases.isNotEmpty
-                            ? _buildDropdown()
-                            : const Text('Fetch list',
-                                style: TextStyle(
-                                    color: _accent,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600))),
-                  ),
-                  const SizedBox(width: 4),
-                  const Icon(Icons.chevron_right,
-                      color: Colors.white24, size: 20),
-                ],
+  // ─────────────────────────────────────────────────────────────────────────
+  //  PAGE FETCH ROW
+  // ─────────────────────────────────────────────────────────────────────────
+
+  Widget _buildPageFetchRow() {
+    final showDropdown = _availableDatabases.isNotEmpty;
+    final hasSelected = _dbIdController.text.isNotEmpty;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        children: [
+          const Text(
+            'Page',
+            style: TextStyle(
+              color: _kWhite,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+
+          const Spacer(), // pushes dropdown to the right
+
+          if (showDropdown)
+            SizedBox(
+              width: 180, // control distance + prevent centering
+              child: _buildDropdown(),
+            )
+          else
+            SizedBox(
+              width: 180,
+              child: Text(
+                hasSelected ? _dbIdController.text : 'None fetched',
+                style: TextStyle(
+                  color: hasSelected ? _kWhite60 : _kWhite30,
+                  fontSize: 13,
+                ),
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.right,
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
 
-  Widget _buildLikedVideosTile() {
-    return InkWell(
-      onTap: () => context.push('/liked-videos'),
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: const Row(
-          children: [
-            Text('Liked Videos',
-                style: TextStyle(color: Colors.white, fontSize: 15)),
-            Spacer(),
-            Icon(Icons.chevron_right, color: Colors.white24, size: 20),
-          ],
-        ),
+          const SizedBox(width: 12),
+
+          GestureDetector(
+            onTap: _isFetching ? null : _fetchDatabases,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              child: _isFetching
+                  ? const SizedBox(
+                      key: ValueKey('loading'),
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: _kCyan,
+                      ),
+                    )
+                  : Container(
+                      key: const ValueKey('refresh'),
+                      padding: const EdgeInsets.all(5),
+                      decoration: BoxDecoration(
+                        color: _kCyan.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.refresh_rounded,
+                        color: _kCyan,
+                        size: 16,
+                      ),
+                    ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildDropdown() {
-    return DropdownButtonHideUnderline(
-      child: DropdownButton<String>(
-        dropdownColor: _surface,
-        icon: const SizedBox.shrink(),
-        isExpanded: false,
-        value: _availableDatabases.any((d) => d['id'] == _dbIdController.text)
-            ? _dbIdController.text
-            : null,
-        items: _availableDatabases.map((db) {
-          return DropdownMenuItem(
-            value: db['id'],
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 150),
-              child: Text(db['title']!,
-                  style: const TextStyle(color: _accent, fontSize: 14),
-                  overflow: TextOverflow.ellipsis),
-            ),
-          );
-        }).toList(),
-        onChanged: (v) => setState(() => _dbIdController.text = v!),
+    return ButtonTheme(
+      alignedDropdown: true,
+      minWidth: 0,
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          dropdownColor: _kSurface2,
+          icon:
+              const Icon(Icons.expand_more_rounded, color: _kWhite30, size: 16),
+          isExpanded: false,
+          isDense: true,
+          value: _availableDatabases.any((d) => d['id'] == _dbIdController.text)
+              ? _dbIdController.text
+              : null,
+          items: _availableDatabases.map((db) {
+            return DropdownMenuItem(
+              value: db['id'],
+              child: Text(
+                db['title']!,
+                style: const TextStyle(color: _kCyan, fontSize: 13),
+                overflow: TextOverflow.ellipsis,
+              ),
+            );
+          }).toList(),
+          onChanged: (v) async {
+            setState(() => _dbIdController.text = v!);
+            final storage = context.read<StorageService>();
+            await storage.saveNotionDatabaseId(v!);
+            _flashSaved();
+          },
+        ),
       ),
     );
   }
+  // ─────────────────────────────────────────────────────────────────────────
+  //  INTERCEPT ROW
+  // ─────────────────────────────────────────────────────────────────────────
 
-  Widget _buildActionButtons() {
+  Widget _buildInterceptRow() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: _hPadding),
-      child: Column(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
         children: [
-          _buildPrimaryButton(
-            onPressed: _isSyncing ? null : _sync,
-            label: _isSyncing ? 'Syncing...' : 'Sync to Notion',
-            icon: Icons.sync,
+          // Icon badge
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: _kRed.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.swap_horiz_rounded, color: _kRed, size: 17),
           ),
-          const SizedBox(height: 12),
-          _buildSecondaryButton(
-            onPressed: _saveSettings,
-            label: 'Save Changes',
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Intercept TikTok',
+                  style: TextStyle(
+                    color: _kWhite,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _interceptEnabled
+                      ? 'Active — opens TikGood instead'
+                      : 'Disabled',
+                  style: TextStyle(
+                    color:
+                        _interceptEnabled ? _kCyan.withOpacity(0.8) : _kWhite30,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _buildTikTokSwitch(
+            value: _interceptEnabled,
+            onChanged: _toggleIntercept,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildPrimaryButton({
-    required VoidCallback? onPressed,
-    required String label,
-    required IconData icon,
+  //  GOAL REMINDER ROW
+  // ─────────────────────────────────────────────────────────────────────────
+
+  Widget _buildGoalReminderRow() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        children: [
+          // Icon badge
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: _kCyan.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.flag_rounded, color: _kCyan, size: 17),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Enable Goal Reminder',
+                  style: TextStyle(
+                    color: _kWhite,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _goalReminderEnabled
+                      ? 'Shows goal screen on app startup'
+                      : 'Disabled',
+                  style: TextStyle(
+                    color: _goalReminderEnabled
+                        ? _kCyan.withOpacity(0.8)
+                        : _kWhite30,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _buildTikTokSwitch(
+            value: _goalReminderEnabled,
+            onChanged: _toggleGoalReminder,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _toggleGoalReminder(bool value) async {
+    final goalService = context.read<GoalService>();
+    await goalService.setGoalReminderEnabled(value);
+    setState(() {
+      _goalReminderEnabled = value;
+    });
+  }
+
+  /// TikTok-branded switch: cyan track when on, red thumb glow
+  Widget _buildTikTokSwitch({
+    required bool value,
+    required ValueChanged<bool> onChanged,
   }) {
-    return SizedBox(
-      width: double.infinity,
-      height: 52,
-      child: ElevatedButton.icon(
-        onPressed: onPressed,
-        icon: Icon(icon, size: 20),
-        label: Text(label,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: _accent,
-          foregroundColor: Colors.white,
-          elevation: 0,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    return Switch(
+      value: value,
+      onChanged: onChanged,
+      activeColor: _kBg,
+      activeTrackColor: _kCyan,
+      inactiveThumbColor: _kWhite30,
+      inactiveTrackColor: _kWhite12,
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  //  NAV ROW (Liked Videos, etc.)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  Widget _buildNavRow({required String label, required VoidCallback onTap}) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        child: Row(
+          children: [
+            Text(label, style: const TextStyle(color: _kWhite, fontSize: 14)),
+            const Spacer(),
+            const Icon(Icons.chevron_right_rounded, color: _kWhite30, size: 20),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildSecondaryButton({
-    required VoidCallback onPressed,
-    required String label,
-  }) {
-    return SizedBox(
-      width: double.infinity,
-      height: 52,
-      child: OutlinedButton(
-        onPressed: onPressed,
-        style: OutlinedButton.styleFrom(
-          side: const BorderSide(color: _divider, width: 1.5),
-          foregroundColor: Colors.white,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+  // ─────────────────────────────────────────────────────────────────────────
+  //  HELP LINK
+  // ─────────────────────────────────────────────────────────────────────────
+
+  Widget _buildHelpLink({required String url, required String title}) {
+    return InkWell(
+      onTap: () => _launchUrl(url),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            // TikTok-style play badge
+            Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [_kCyan, _kRed],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Icon(Icons.play_arrow_rounded,
+                  color: _kWhite, size: 14),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+                child: Text(
+              title,
+              maxLines: 2,
+              style: const TextStyle(
+                color: _kWhite60,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            )),
+            // const Spacer(),
+            const Icon(Icons.open_in_new_rounded, color: _kWhite30, size: 14),
+          ],
         ),
-        child: Text(label,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
       ),
     );
   }
 
-  Widget _buildVisibilityIcon() {
+  // ─────────────────────────────────────────────────────────────────────────
+  //  UTILITIES
+  // ─────────────────────────────────────────────────────────────────────────
+
+  Widget _buildDivider() =>
+      const Divider(color: _kBorder, height: 1, indent: 16);
+
+  Widget _buildEyeIcon() {
     return IconButton(
-      icon: Icon(_obscureKey ? Icons.visibility_off : Icons.visibility,
-          color: Colors.white24, size: 18),
+      icon: Icon(
+        _obscureKey ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+        color: _kWhite30,
+        size: 18,
+      ),
       onPressed: () => setState(() => _obscureKey = !_obscureKey),
     );
   }
 
   Widget _buildFooter() {
-    return const Column(
+    return Column(
       children: [
-        Text('TikGood for Mobile',
-            style: TextStyle(
-                color: Colors.white24,
+        // Mini TikTok-style logo row
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 18,
+              height: 18,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [_kCyan, _kRed],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Icon(Icons.music_note_rounded,
+                  color: _kWhite, size: 11),
+            ),
+            const SizedBox(width: 6),
+            const Text(
+              'TikGood',
+              style: TextStyle(
+                color: _kWhite60,
                 fontSize: 13,
-                fontWeight: FontWeight.w500)),
-        SizedBox(height: 4),
-        Text('Version 1.0.4',
-            style: TextStyle(color: Colors.white10, fontSize: 11)),
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.3,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'Version 1.0.4  ·  Changes save automatically',
+          style: TextStyle(color: _kWhite30, fontSize: 11),
+        ),
       ],
     );
   }
-
-  void _snack(String m) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(m),
-      backgroundColor: _accent,
-      behavior: SnackBarBehavior.floating));
 
   Future<void> _fetchDatabases() async {
     setState(() => _isFetching = true);
@@ -470,28 +872,28 @@ class _SettingsPageState extends State<SettingsPage>
           .read<NotionService>()
           .fetchPages(_apiKeyController.text.trim());
       setState(() => _availableDatabases = dbs);
-    } catch (e) {
-      _snack('Failed to fetch databases');
+    } catch (_) {
+      _snack('Failed to fetch pages');
     } finally {
       setState(() => _isFetching = false);
     }
   }
 
-  Future<void> _sync() async {
-    setState(() => _isSyncing = true);
-    await Future.delayed(const Duration(seconds: 1));
-    setState(() => _isSyncing = false);
-    _snack('Sync Complete');
+  Future<void> _launchUrl(String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
   }
 
-  Future<void> _saveSettings() async {
-    final storage = context.read<StorageService>();
-    await Future.wait([
-      storage.saveNotionApiKey(_apiKeyController.text.trim()),
-      storage.saveNotionDatabaseId(_dbIdController.text.trim()),
-      storage.saveCloudinaryCloudName(_cloudNameController.text.trim()),
-      storage.saveCloudinaryUploadPreset(_uploadPresetController.text.trim()),
-    ]);
-    _snack('Settings Saved');
+  void _snack(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        // backgroundColor: _kSurface2,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
   }
 }
