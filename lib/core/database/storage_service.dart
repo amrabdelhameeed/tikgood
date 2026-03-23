@@ -191,4 +191,25 @@ class StorageService {
       await likeVideo(videoId);
     }
   }
+
+  // --- Streak ---
+  int getStreakCount() => settingsBox.get('streak_count', defaultValue: 0) as int;
+  Future<void> saveStreakCount(int count) async =>
+      await settingsBox.put('streak_count', count);
+
+  String? getLastOpenDate() => settingsBox.get('streak_last_open_date') as String?;
+  Future<void> saveLastOpenDate(String isoDate) async =>
+      await settingsBox.put('streak_last_open_date', isoDate);
+
+  // --- Reminder ---
+  /// Stored as "HH:mm" 24-hour string, e.g. "20:00"
+  String getReminderTime() =>
+      settingsBox.get('reminder_time', defaultValue: '20:00') as String;
+  Future<void> saveReminderTime(String hhmm) async =>
+      await settingsBox.put('reminder_time', hhmm);
+
+  bool getReminderEnabled() =>
+      settingsBox.get('reminder_enabled', defaultValue: false) as bool;
+  Future<void> saveReminderEnabled(bool enabled) async =>
+      await settingsBox.put('reminder_enabled', enabled);
 }
