@@ -16,9 +16,11 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  final GlobalKey<VideoFeedViewState> _feedKey = GlobalKey<VideoFeedViewState>();
+  final GlobalKey<VideoFeedViewState> _feedKey =
+      GlobalKey<VideoFeedViewState>();
 
   Future<void> _requestPermissions() async {
+    // await Permission.notification.request();
     await Permission.videos.request();
     await Permission.storage.request();
   }

@@ -1,5 +1,7 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:tikgood/app_router.dart';
 import 'package:tikgood/features/courses/data/models/course.dart';
 import '../../../home/presentation/bloc/app_cubit.dart';
 import '../../../home/presentation/bloc/app_state.dart';
@@ -16,6 +18,7 @@ class AddCoursePage extends StatefulWidget {
 class _AddCoursePageState extends State<AddCoursePage> {
   bool _followByDefault = true;
   static const Color _tikTokRed = Color(0xFFFE2C55);
+  static const Color _tikTokCyan = Color(0xFF25F4EE);
 
   Future<void> _pickDirectory(BuildContext context) async {
     final selectedDirectory = await FilePicker.platform.getDirectoryPath();
@@ -27,9 +30,9 @@ class _AddCoursePageState extends State<AddCoursePage> {
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Scanning for videos...',
-                style: TextStyle(fontWeight: FontWeight.bold)),
+          SnackBar(
+            content: Text('add_course_scanning_snack'.tr(),
+                style: const TextStyle(fontWeight: FontWeight.bold)),
             backgroundColor: _tikTokRed,
             behavior: SnackBarBehavior.floating,
           ),
@@ -42,19 +45,18 @@ class _AddCoursePageState extends State<AddCoursePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      // --- Consistent TikTok AppBar ---
       appBar: AppBar(
         backgroundColor: Colors.black,
         elevation: 0,
         centerTitle: true,
-        title: const Text('Add Course',
-            style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.5)),
+        title: Text(
+          'add_course_title'.tr(),
+          style: const TextStyle(
+              fontSize: 17, fontWeight: FontWeight.w700, letterSpacing: -0.5),
+        ),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
-          child: Container(color: Color(0xFF252525), height: 0.5),
+          child: Container(color: const Color(0xFF252525), height: 0.5),
         ),
       ),
       body: BlocBuilder<AppCubit, AppState>(
@@ -62,9 +64,14 @@ class _AddCoursePageState extends State<AddCoursePage> {
           return ListView(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
             children: [
-              // ── Pick Folder Card (High Polish) ──────────────────────
+              // ── Pick Folder Card ─────────────────────────────────────────
               GestureDetector(
-                onTap: state.isLoading ? null : () => _pickDirectory(context),
+                onTap: state.isLoading
+                    ? null
+                    : () {
+                        _pickDirectory(context);
+                        AppRouter.router.go('/');
+                      },
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 300),
                   height: 180,
@@ -76,16 +83,18 @@ class _AddCoursePageState extends State<AddCoursePage> {
                         width: 1.5),
                   ),
                   child: state.isLoading
-                      ? const Column(
+                      ? Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            CircularProgressIndicator(
+                            const CircularProgressIndicator(
                                 color: _tikTokRed, strokeWidth: 3),
-                            SizedBox(height: 16),
-                            Text('Syncing Library...',
-                                style: TextStyle(
-                                    color: Colors.white70,
-                                    fontWeight: FontWeight.w500)),
+                            const SizedBox(height: 16),
+                            Text(
+                              'add_course_scanning'.tr(),
+                              style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontWeight: FontWeight.w500),
+                            ),
                           ],
                         )
                       : Column(
@@ -101,39 +110,50 @@ class _AddCoursePageState extends State<AddCoursePage> {
                                   color: _tikTokRed, size: 40),
                             ),
                             const SizedBox(height: 14),
-                            const Text('Import Course Folder',
-                                style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w800)),
+                            Text(
+                              'add_course_import_folder'.tr(),
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800),
+                            ),
                             const SizedBox(height: 4),
-                            Text('Tap to browse your files',
-                                style: TextStyle(
-                                    color: Colors.white.withOpacity(0.3),
-                                    fontSize: 12)),
+                            Text(
+                              'add_course_tap_to_browse'.tr(),
+                              style: TextStyle(
+                                  color: Colors.white.withOpacity(0.3),
+                                  fontSize: 12),
+                            ),
                           ],
                         ),
                 ),
               ),
 
+              const SizedBox(height: 16),
+
+              // ── YouTube Coming Soon Card ──────────────────────────────────
+              _buildYouTubeSoonCard(),
+
               const SizedBox(height: 24),
 
-              // ── Settings Label ───────────────────────────────
-              const Padding(
-                padding: EdgeInsets.only(left: 4, bottom: 12),
-                child: Text('PREFERENCES',
-                    style: TextStyle(
-                        color: Colors.white38,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.2)),
+              // ── Preferences Label ─────────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.only(left: 4, bottom: 12),
+                child: Text(
+                  'add_course_preferences'.tr(),
+                  style: const TextStyle(
+                      color: Colors.white38,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.2),
+                ),
               ),
 
-              // ── Options Card ───────────────────────────────
+              // ── Options Card ──────────────────────────────────────────────
               _buildSettingTile(
                 icon: Icons.auto_awesome_rounded,
-                title: 'Follow by default',
-                subtitle: 'Add new courses to your feed',
+                title: 'add_course_follow_default'.tr(),
+                subtitle: 'add_course_follow_subtitle'.tr(),
                 trailing: Switch.adaptive(
                   value: _followByDefault,
                   onChanged: (v) => setState(() => _followByDefault = v),
@@ -142,21 +162,6 @@ class _AddCoursePageState extends State<AddCoursePage> {
               ),
 
               const SizedBox(height: 32),
-
-              // ── Existing Courses Section ──────────────────────
-              // if (state.courses.isNotEmpty) ...[
-              //   // const Padding(
-              //   //   padding: EdgeInsets.only(left: 4, bottom: 12),
-              //   //   child: Text('MANAGED COURSES',
-              //   //       style: TextStyle(
-              //   //           color: Colors.white38,
-              //   //           fontSize: 11,
-              //   //           fontWeight: FontWeight.w800,
-              //   //           letterSpacing: 1.2)),
-              //   // ),
-              //   ...state.courses
-              //       .map((course) => _buildCourseTile(context, course)),
-              // ],
             ],
           );
         },
@@ -164,11 +169,93 @@ class _AddCoursePageState extends State<AddCoursePage> {
     );
   }
 
-  Widget _buildSettingTile(
-      {required IconData icon,
-      required String title,
-      required String subtitle,
-      required Widget trailing}) {
+  // ── YouTube Coming Soon Card ───────────────────────────────────────────────
+
+  Widget _buildYouTubeSoonCard() {
+    return Stack(
+      children: [
+        // Dimmed card
+        Container(
+          height: 100,
+          decoration: BoxDecoration(
+            color: const Color(0xFF0D0D0D),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: Colors.white.withOpacity(0.06), width: 1.5),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // YouTube icon badge
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.08),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.play_circle_fill_rounded,
+                    color: Colors.red, size: 36),
+              ),
+              const SizedBox(width: 16),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'add_course_youtube_title'.tr(),
+                    style: const TextStyle(
+                      color: Colors.white54,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    'add_course_youtube_subtitle'.tr(),
+                    style: const TextStyle(
+                      color: Colors.white24,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        // SOON badge
+        Positioned(
+          top: 10,
+          right: 14,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: _tikTokCyan.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(20),
+              border:
+                  Border.all(color: _tikTokCyan.withOpacity(0.5), width: 0.8),
+            ),
+            child: Text(
+              'add_course_soon'.tr(),
+              style: const TextStyle(
+                color: _tikTokCyan,
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.2,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── Setting Tile ───────────────────────────────────────────────────────────
+
+  Widget _buildSettingTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Widget trailing,
+  }) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
