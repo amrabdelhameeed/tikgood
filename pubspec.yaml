@@ -1,7 +1,7 @@
 name: tikgood
 description: TikGood - TikTok-style video note-taking app for courses.
 publish_to: none
-version: 1.0.0+1
+version: 0.0.1+1
 
 environment:
   sdk: '>=3.2.3 <4.0.0'
@@ -27,6 +27,7 @@ dependencies:
   flutter_bloc: ^8.1.6
   flutter_local_notifications: 20.1.0
   flutter_screenutil: ^5.9.0
+  timezone: ^0.10.0
   flutter_secure_storage: ^10.0.0
   flutter_svg: ^2.0.9
   go_router: ^13.2.0
@@ -50,6 +51,7 @@ dependencies:
   sensors_plus: ^7.0.0
   shared_preferences: ^2.2.2
   upgrader: ^12.1.0
+  url_launcher: ^6.3.1
   uuid: ^4.5.1
   video_thumbnail: ^0.5.6
   waveform_flutter: ^1.2.0
@@ -75,4 +77,6 @@ flutter:
     - family: tiktok
       fonts:
         - asset: assets/fonts/tiktok/tiktok.ttf
+          weight: 400
         - asset: assets/fonts/tiktok/tiktok_bold.ttf
+          weight: 700
