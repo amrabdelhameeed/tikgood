@@ -45,6 +45,7 @@ class GoalNotificationService {
       playSound: false,
       enableVibration: false,
       showWhen: false, // Don't show timestamp
+      icon: 'mipmap/launcher_icon', // Use notification icon from res folder
     );
 
     // Truncate long goals for notification display
