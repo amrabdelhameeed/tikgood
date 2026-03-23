@@ -336,8 +336,6 @@ class _TikTokNotesSheetState extends State<TikTokNotesSheet> {
     );
   }
 
-  // ... (Rest of logic: _captureFrame, _submitNote, _handleVoice remain largely same but check context/styling) ...
-
   Widget _buildStagedImagePreview() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

@@ -158,17 +158,31 @@ class NotionService {
           _callout(
               emoji: '🔖', text: '$ts — Bookmark', color: 'red_background'),
         ];
-
       case 'voice':
-        final isTranscribed = content.contains(' ') || content.length > 20;
         return [
-          _callout(
-            emoji: '🎙️',
-            text: isTranscribed ? '$ts — $content' : '$ts — Voice note',
-            color: 'orange_background',
-          ),
+          {
+            'type': 'audio',
+            'audio': {
+              'type': 'external',
+              'external': {
+                'url': content, // your Cloudinary audio URL
+              },
+            },
+          },
+          {
+            'type': 'paragraph',
+            'paragraph': {
+              'rich_text': [
+                {
+                  'type': 'text',
+                  'text': {
+                    'content': '🎙️ Voice note @ ${_fmt(timestamp)}',
+                  },
+                }
+              ],
+            },
+          },
         ];
-
       case 'text':
         return [
           _callout(
@@ -382,10 +396,9 @@ class NotionService {
                 }
 
                 if (note.type == 'voice' && !content.startsWith('http')) {
-                  // final transcript = await _transcribeAudio(content);
-                  // if (transcript != null && transcript.isNotEmpty) {
-                  //   content = transcript;
-                  // }
+                  final url = await _uploadVoice(content);
+                  if (url != null) content = url;
+                  // content is now a CDN URL → _buildNoteBlocks will render it as audio
                 }
 
                 noteBlocks.addAll(
@@ -556,7 +569,7 @@ class NotionService {
     }
   }
 
-  // ── Imgbb image upload ────────────────────────────────────────────────────
+  // OLD: ── Imgbb image upload ────────────────────────────────────────────────────
 
   // ── Cloudinary upload — preserves original quality, no recompression ────────
   // Cloud Name  : visible on your Cloudinary dashboard
@@ -601,6 +614,45 @@ class NotionService {
       }
     } catch (e) {
       debugPrint('Image upload error: $e');
+    }
+    return null;
+  }
+
+// ── Upload voice to Cloudinary ──────────────────────────────────────────────
+  Future<String?> _uploadVoice(String localPath) async {
+    try {
+      final file = File(localPath);
+      if (!await file.exists()) return null;
+
+      final cloudName = _storage.getCloudinaryCloudName() ?? 'drsfitprd';
+      final uploadPreset = _storage.getCloudinaryUploadPreset() ?? 'TikGood';
+
+      if (cloudName.isEmpty || uploadPreset.isEmpty) {
+        debugPrint('Cloudinary credentials missing.');
+        return null;
+      }
+
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('https://api.cloudinary.com/v1_1/$cloudName/video/upload'),
+      );
+      request.fields['upload_preset'] = uploadPreset;
+      request.fields['resource_type'] = 'video'; // audio lives under 'video'
+      request.files.add(await http.MultipartFile.fromPath('file', localPath));
+
+      final streamed = await request.send();
+      final res = await http.Response.fromStream(streamed);
+
+      debugPrint('Cloudinary voice [${res.statusCode}]: ${res.body}');
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        final url = data['secure_url'] as String?;
+        debugPrint('Cloudinary voice OK: $url');
+        return url;
+      }
+    } catch (e) {
+      debugPrint('Voice upload error: $e');
     }
     return null;
   }
