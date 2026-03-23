@@ -17,8 +17,10 @@ import '../../../home/presentation/bloc/app_state.dart';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const _accent = Color(0xFFFE2C55);
+const _accentSecondary = Color(0xFF25F4EE); // TikTok cyan
 const _surface = Color(0xFF111111);
-const _card = Color(0xFF1A1A1A);
+const _card = Color(0xFF161616);
+const _cardElevated = Color(0xFF1E1E1E);
 const _divider = Color(0xFF2A2A2A);
 const _textPrimary = Colors.white;
 const _textSecondary = Color(0xFF888888);
@@ -33,6 +35,58 @@ class NotesPage extends StatefulWidget {
 
 class _NotesPageState extends State<NotesPage> {
   String _currentFilter = 'all';
+
+  // ── Shared voice player (ONE player for all voice notes) ──────────────────
+  Player? _sharedVoicePlayer;
+  String? _currentlyPlayingNoteId;
+
+  @override
+  void initState() {
+    super.initState();
+    _sharedVoicePlayer = Player();
+    _sharedVoicePlayer!.stream.completed.listen((done) {
+      if (done && mounted) {
+        setState(() => _currentlyPlayingNoteId = null);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _sharedVoicePlayer?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _toggleVoice(String noteId, String path) async {
+    if (_sharedVoicePlayer == null) return;
+
+    // same note → pause
+    if (_currentlyPlayingNoteId == noteId) {
+      await _sharedVoicePlayer!.pause();
+      setState(() => _currentlyPlayingNoteId = null);
+      return;
+    }
+
+    // check file exists (local only)
+    if (!await File(path).exists()) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Voice file not found on device'),
+            backgroundColor: _accent,
+            behavior: SnackBarBehavior.floating,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      }
+      return;
+    }
+
+    setState(() => _currentlyPlayingNoteId = noteId);
+    await _sharedVoicePlayer!.open(Media('file://$path'));
+    await _sharedVoicePlayer!.play();
+  }
 
   // ── AppBar ─────────────────────────────────────────────────────────────────
   PreferredSizeWidget _buildAppBar() {
@@ -123,6 +177,8 @@ class _NotesPageState extends State<NotesPage> {
                 totalNotes: totalNotes,
                 videoNotes: cd.videoNotes,
                 onPlayNote: _playNoteAtTimestamp,
+                currentlyPlayingNoteId: _currentlyPlayingNoteId,
+                onToggleVoice: _toggleVoice,
               );
             },
           );
@@ -280,7 +336,22 @@ class _NotesPageState extends State<NotesPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 64, color: _textTertiary),
+            // TikTok-style glitch icon effect
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                Transform.translate(
+                  offset: const Offset(-2, 0),
+                  child: Icon(icon,
+                      size: 64, color: _accentSecondary.withOpacity(0.5)),
+                ),
+                Transform.translate(
+                  offset: const Offset(2, 0),
+                  child: Icon(icon, size: 64, color: _accent.withOpacity(0.5)),
+                ),
+                Icon(icon, size: 64, color: _textTertiary),
+              ],
+            ),
             const SizedBox(height: 16),
             Text(message,
                 style: const TextStyle(color: _textSecondary, fontSize: 14),
@@ -328,7 +399,7 @@ class _FilterButton extends StatelessWidget {
             ),
         ],
       ),
-      color: _card,
+      color: _cardElevated,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       onSelected: onSelected,
       itemBuilder: (_) => _items.entries.map((e) {
@@ -362,12 +433,16 @@ class _CourseSection extends StatelessWidget {
   final int totalNotes;
   final List<({Video video, List<Note> notes})> videoNotes;
   final Function(Note, Video) onPlayNote;
+  final String? currentlyPlayingNoteId;
+  final Future<void> Function(String noteId, String path) onToggleVoice;
 
   const _CourseSection({
     required this.courseName,
     required this.totalNotes,
     required this.videoNotes,
     required this.onPlayNote,
+    required this.currentlyPlayingNoteId,
+    required this.onToggleVoice,
   });
 
   @override
@@ -375,13 +450,29 @@ class _CourseSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Course header row
+        // Course header
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
           child: Row(
             children: [
-              const Icon(Icons.school_outlined, color: _accent, size: 15),
-              const SizedBox(width: 7),
+              // TikTok-style dual-color icon
+              Stack(
+                children: [
+                  Transform.translate(
+                    offset: const Offset(-1, 0),
+                    child: const Icon(Icons.school_outlined,
+                        color: _accentSecondary, size: 15),
+                  ),
+                  Transform.translate(
+                    offset: const Offset(1, 0),
+                    child: const Icon(Icons.school_outlined,
+                        color: _accent, size: 15),
+                  ),
+                  const Icon(Icons.school_outlined,
+                      color: Colors.white, size: 15),
+                ],
+              ),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   courseName,
@@ -393,18 +484,21 @@ class _CourseSection extends StatelessWidget {
                   ),
                 ),
               ),
+              // TikTok-style pill counter
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: _accent.withOpacity(0.12),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFE2C55), Color(0xFFFF6B6B)],
+                  ),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
                   '$totalNotes',
                   style: const TextStyle(
-                      color: _accent,
+                      color: Colors.white,
                       fontSize: 11,
-                      fontWeight: FontWeight.w600),
+                      fontWeight: FontWeight.w700),
                 ),
               ),
             ],
@@ -414,6 +508,8 @@ class _CourseSection extends StatelessWidget {
               video: vn.video,
               notes: vn.notes,
               onPlayNote: onPlayNote,
+              currentlyPlayingNoteId: currentlyPlayingNoteId,
+              onToggleVoice: onToggleVoice,
             )),
         const SizedBox(height: 8),
         Container(color: _divider, height: 0.5),
@@ -427,11 +523,15 @@ class _VideoNotesCard extends StatelessWidget {
   final Video video;
   final List<Note> notes;
   final Function(Note, Video) onPlayNote;
+  final String? currentlyPlayingNoteId;
+  final Future<void> Function(String noteId, String path) onToggleVoice;
 
   const _VideoNotesCard({
     required this.video,
     required this.notes,
     required this.onPlayNote,
+    required this.currentlyPlayingNoteId,
+    required this.onToggleVoice,
   });
 
   @override
@@ -456,15 +556,34 @@ class _VideoNotesCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               child: Row(
                 children: [
+                  // TikTok-style video thumbnail placeholder
                   Container(
                     width: 52,
                     height: 52,
                     decoration: BoxDecoration(
                       color: Colors.black,
                       borderRadius: BorderRadius.circular(8),
+                      border:
+                          Border.all(color: _accent.withOpacity(0.3), width: 1),
                     ),
-                    child: const Icon(Icons.play_circle_fill,
-                        color: _accent, size: 26),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // Glitch layers
+                        Transform.translate(
+                          offset: const Offset(-1.5, 0),
+                          child: const Icon(Icons.play_circle_fill,
+                              color: _accentSecondary, size: 24),
+                        ),
+                        Transform.translate(
+                          offset: const Offset(1.5, 0),
+                          child: const Icon(Icons.play_circle_fill,
+                              color: _accent, size: 24),
+                        ),
+                        const Icon(Icons.play_circle_fill,
+                            color: Colors.white, size: 24),
+                      ],
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -482,11 +601,24 @@ class _VideoNotesCard extends StatelessWidget {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 3),
-                        Text(
-                          '${notes.length} note${notes.length != 1 ? 's' : ''}',
-                          style: const TextStyle(
-                              color: _textSecondary, fontSize: 12),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Container(
+                              width: 4,
+                              height: 4,
+                              decoration: const BoxDecoration(
+                                color: _accent,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              '${notes.length} note${notes.length != 1 ? 's' : ''}',
+                              style: const TextStyle(
+                                  color: _textSecondary, fontSize: 12),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -507,6 +639,9 @@ class _VideoNotesCard extends StatelessWidget {
                   note: e.value,
                   video: video,
                   onPlay: () => onPlayNote(e.value, video),
+                  isPlayingVoice: currentlyPlayingNoteId == e.value.id,
+                  onToggleVoice: () =>
+                      onToggleVoice(e.value.id, e.value.content),
                 ),
                 if (!isLast)
                   Padding(
@@ -527,11 +662,15 @@ class _NoteCardItem extends StatefulWidget {
   final Note note;
   final Video video;
   final VoidCallback onPlay;
+  final bool isPlayingVoice;
+  final VoidCallback onToggleVoice;
 
   const _NoteCardItem({
     required this.note,
     required this.video,
     required this.onPlay,
+    required this.isPlayingVoice,
+    required this.onToggleVoice,
   });
 
   @override
@@ -540,43 +679,17 @@ class _NoteCardItem extends StatefulWidget {
 
 class _NoteCardItemState extends State<_NoteCardItem> {
   String? _thumbPath;
-  Player? _voicePlayer;
-  bool _isPlayingVoice = false;
 
   @override
   void initState() {
     super.initState();
     _loadThumbnail();
-    if (widget.note.type == 'voice') {
-      _voicePlayer = Player();
-      _voicePlayer!.stream.completed.listen((done) {
-        if (done && mounted) setState(() => _isPlayingVoice = false);
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    _voicePlayer?.dispose();
-    super.dispose();
   }
 
   Future<void> _loadThumbnail() async {
     final path = await ThumbnailCacheService.instance
         .getThumbnail(widget.video.filePath);
     if (mounted) setState(() => _thumbPath = path);
-  }
-
-  Future<void> _toggleVoice() async {
-    if (_voicePlayer == null) return;
-    if (_isPlayingVoice) {
-      await _voicePlayer!.pause();
-      setState(() => _isPlayingVoice = false);
-    } else {
-      await _voicePlayer!.open(Media(widget.note.content));
-      await _voicePlayer!.play();
-      setState(() => _isPlayingVoice = true);
-    }
   }
 
   void _showFullImage(String path) {
@@ -636,14 +749,28 @@ class _NoteCardItemState extends State<_NoteCardItem> {
                             color: _textSecondary, fontSize: 11),
                       ),
                       const Spacer(),
-                      Icon(
-                        widget.note.isSyncedWithNotion
-                            ? Icons.cloud_done_outlined
-                            : Icons.cloud_off_outlined,
-                        size: 13,
-                        color: widget.note.isSyncedWithNotion
-                            ? const Color(0xFF22C55E)
-                            : _textTertiary,
+                      // Notion sync badge
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            widget.note.isSyncedWithNotion
+                                ? Icons.cloud_done_outlined
+                                : Icons.cloud_off_outlined,
+                            size: 13,
+                            color: widget.note.isSyncedWithNotion
+                                ? const Color(0xFF22C55E)
+                                : _textTertiary,
+                          ),
+                          if (widget.note.isSyncedWithNotion) ...[
+                            const SizedBox(width: 3),
+                            const Text(
+                              'Synced',
+                              style: TextStyle(
+                                  color: Color(0xFF22C55E), fontSize: 10),
+                            ),
+                          ],
+                        ],
                       ),
                     ],
                   ),
@@ -655,8 +782,22 @@ class _NoteCardItemState extends State<_NoteCardItem> {
             const SizedBox(width: 10),
             GestureDetector(
               onTap: widget.onPlay,
-              child:
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Transform.translate(
+                    offset: const Offset(-1, 0),
+                    child: Icon(Icons.play_circle_fill,
+                        color: _accentSecondary.withOpacity(0.4), size: 26),
+                  ),
+                  Transform.translate(
+                    offset: const Offset(1, 0),
+                    child: Icon(Icons.play_circle_fill,
+                        color: _accent.withOpacity(0.4), size: 26),
+                  ),
                   const Icon(Icons.play_circle_fill, color: _accent, size: 26),
+                ],
+              ),
             ),
           ],
         ),
@@ -676,64 +817,105 @@ class _NoteCardItemState extends State<_NoteCardItem> {
         );
 
       case 'bookmark':
-        return const Text(
-          'Bookmarked moment',
-          style: TextStyle(
-              color: _accent, fontSize: 13, fontStyle: FontStyle.italic),
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 3,
+              height: 14,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [_accent, _accentSecondary],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(width: 7),
+            const Text(
+              'Bookmarked moment',
+              style: TextStyle(
+                  color: _accent, fontSize: 13, fontStyle: FontStyle.italic),
+            ),
+          ],
         );
 
       case 'voice':
         return GestureDetector(
-          onTap: _toggleVoice,
+          onTap: widget.onToggleVoice,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.orange.withOpacity(0.08),
+              color: Colors.orange.withOpacity(0.07),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.orange.withOpacity(0.2)),
+              border: Border.all(
+                color: widget.isPlayingVoice
+                    ? Colors.orange.withOpacity(0.6)
+                    : Colors.orange.withOpacity(0.2),
+              ),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  _isPlayingVoice
-                      ? Icons.pause_rounded
-                      : Icons.play_arrow_rounded,
-                  color: Colors.orange,
-                  size: 20,
+                // Play/pause icon
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    widget.isPlayingVoice
+                        ? Icons.pause_rounded
+                        : Icons.play_arrow_rounded,
+                    color: Colors.orange,
+                    size: 18,
+                  ),
                 ),
-                const SizedBox(width: 6),
-                ...List.generate(12, (i) {
+                const SizedBox(width: 8),
+                // Waveform bars
+                ...List.generate(14, (i) {
                   final heights = [
-                    6.0,
-                    10,
-                    14,
-                    8,
-                    16,
-                    10,
-                    12,
+                    5.0,
+                    9,
+                    13,
+                    7,
+                    15,
+                    9,
+                    11,
+                    5,
+                    13,
+                    9,
+                    7,
+                    11,
                     6,
-                    14,
-                    10,
-                    8,
-                    12
+                    10
                   ];
                   return AnimatedContainer(
-                    duration: Duration(milliseconds: 200 + i * 30),
-                    margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                    duration: Duration(milliseconds: 150 + i * 25),
+                    margin: const EdgeInsets.symmetric(horizontal: 1.2),
                     width: 2.5,
-                    height: _isPlayingVoice ? heights[i].toDouble() : 3.0,
+                    height: widget.isPlayingVoice ? heights[i].toDouble() : 3.0,
                     decoration: BoxDecoration(
                       color: Colors.orange
-                          .withOpacity(_isPlayingVoice ? 0.85 : 0.4),
+                          .withOpacity(widget.isPlayingVoice ? 0.9 : 0.35),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   );
                 }),
                 const SizedBox(width: 8),
                 Text(
-                  _isPlayingVoice ? 'Playing…' : 'Voice note',
-                  style: const TextStyle(color: Colors.orange, fontSize: 12),
+                  widget.isPlayingVoice ? 'Playing…' : 'Voice note',
+                  style: TextStyle(
+                    color: Colors.orange
+                        .withOpacity(widget.isPlayingVoice ? 1.0 : 0.7),
+                    fontSize: 12,
+                    fontWeight: widget.isPlayingVoice
+                        ? FontWeight.w600
+                        : FontWeight.normal,
+                  ),
                 ),
               ],
             ),
@@ -770,18 +952,50 @@ class _NoteCardItemState extends State<_NoteCardItem> {
           onTap: exists ? () => _showFullImage(path) : null,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(10),
-            child: exists
-                ? Image.file(file,
-                    width: double.infinity, height: 130, fit: BoxFit.cover)
-                : Container(
-                    width: double.infinity,
-                    height: 70,
-                    color: _surface,
-                    child: const Center(
-                      child: Icon(Icons.broken_image_outlined,
-                          color: _textTertiary, size: 28),
+            child: Stack(
+              children: [
+                exists
+                    ? Image.file(file,
+                        width: double.infinity, height: 130, fit: BoxFit.cover)
+                    : Container(
+                        width: double.infinity,
+                        height: 70,
+                        color: _surface,
+                        child: const Center(
+                          child: Icon(Icons.broken_image_outlined,
+                              color: _textTertiary, size: 28),
+                        ),
+                      ),
+                // TikTok-style gradient overlay on image
+                if (exists)
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    height: 40,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.black.withOpacity(0.5),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
+                // Expand icon
+                if (exists)
+                  const Positioned(
+                    bottom: 6,
+                    right: 6,
+                    child: Icon(Icons.fullscreen_rounded,
+                        color: Colors.white70, size: 16),
+                  ),
+              ],
+            ),
           ),
         ),
         if (caption != null && caption.isNotEmpty) ...[
@@ -829,9 +1043,15 @@ class _Thumbnail extends StatelessWidget {
             borderRadius: BorderRadius.circular(6),
             child: thumbPath != null
                 ? Image.file(File(thumbPath!), fit: BoxFit.cover)
-                : Container(color: _surface),
+                : Container(
+                    decoration: BoxDecoration(
+                      color: _surface,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: _divider, width: 0.5),
+                    ),
+                  ),
           ),
-          // Subtle dark gradient
+          // Gradient overlay
           ClipRRect(
             borderRadius: BorderRadius.circular(6),
             child: Container(
@@ -839,20 +1059,21 @@ class _Thumbnail extends StatelessWidget {
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Colors.black.withOpacity(0.5)],
+                  colors: [Colors.transparent, Colors.black.withOpacity(0.6)],
                 ),
               ),
             ),
           ),
-          // Timestamp chip
+          // Timestamp chip — TikTok style
           Positioned(
             bottom: 3,
             right: 3,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.7),
+                color: Colors.black.withOpacity(0.75),
                 borderRadius: BorderRadius.circular(3),
+                border: Border.all(color: _accent.withOpacity(0.4), width: 0.5),
               ),
               child: Text(
                 _fmt(timestamp),
@@ -891,6 +1112,10 @@ class _TypeBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: (cfg.$2 as Color).withOpacity(0.12),
         borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: (cfg.$2 as Color).withOpacity(0.2),
+          width: 0.5,
+        ),
       ),
       child: Icon(cfg.$1 as IconData, color: cfg.$2 as Color, size: 13),
     );
