@@ -1,81 +1,29 @@
-# ==============================
-# Flutter
-# ==============================
+# Keep Flutter classes
+-keep class io.flutter.app.** { *; }
 -keep class io.flutter.embedding.** { *; }
 -keep class io.flutter.plugin.** { *; }
--keep class io.flutter.plugins.** { *; }
 
-# ==============================
-# Firebase
-# ==============================
+# Keep generated plugin registrant
+-keep class io.flutter.plugins.GeneratedPluginRegistrant { *; }
+
+# Firebase: keep messages & annotations
 -keep class com.google.firebase.** { *; }
--dontwarn com.google.firebase.**
+-keep class com.google.android.gms.** { *; }
 
-# MLKit (Fix FirebaseInstanceId reference)
--keep class com.google.mlkit.** { *; }
--dontwarn com.google.mlkit.**
+# Keep Kotlin metadata
+-keepclassmembers class kotlin.Metadata { *; }
 
-# ==============================
-# Google Play Services (Auth + Credentials API)
-# ==============================
--keep class com.google.android.gms.auth.api.credentials.** { *; }
--keep class com.google.android.gms.auth.api.identity.** { *; }
--keep class com.google.android.gms.tasks.** { *; }
+# Keep your package classes if reflection used
+-keep class id.amrabdelhameed.tikgood.** { *; }
 
--dontwarn com.google.android.gms.**
-
-# ==============================
-# Play Core
-# ==============================
--keep class com.google.android.play.core.** { *; }
--dontwarn com.google.android.play.core.**
-
-# ==============================
-# AndroidX
-# ==============================
--keep class androidx.** { *; }
--keep interface androidx.** { *; }
--dontwarn androidx.**
-
-# ==============================
-# Retrofit
-# ==============================
--keepattributes Signature
--keepattributes *Annotation*
-
--keep,allowobfuscation,allowshrinking interface retrofit2.Call
--keep,allowobfuscation,allowshrinking class retrofit2.Response
-
-# ==============================
-# Gson
-# ==============================
--dontwarn sun.misc.**
-
--keep class * extends com.google.gson.TypeAdapter
--keep class * implements com.google.gson.TypeAdapterFactory
--keep class * implements com.google.gson.JsonSerializer
--keep class * implements com.google.gson.JsonDeserializer
-
-# ==============================
-# Keep native methods
-# ==============================
+# Keep JSON serializers (if any)
 -keepclassmembers class * {
-    native <methods>;
+    @com.google.gson.annotations.SerializedName <fields>;
 }
 
-# ==============================
-# Keep Exceptions
-# ==============================
--keep public class * extends java.lang.Exception
+# MediaKit and pdf may use reflection
+-keep class com.alexmercerind.media_kit.** { *; }
+-keep class com.alexmercerind.pdf.** { *; }
 
-# ==============================
-# Keep debugging metadata for Crashlytics
-# ==============================
--keepattributes SourceFile,LineNumberTable
-# Suppress missing FirebaseInstanceId (removed in Firebase BOM 32+, referenced by old MLKit)
--dontwarn com.google.firebase.iid.**
--dontwarn com.google.firebase.iid.FirebaseInstanceId
-
-# Fix missing Credentials API classes (used by smart_auth plugin)
--dontwarn com.google.android.gms.auth.api.credentials.**
--keep class com.google.android.gms.auth.api.credentials.** { *; }
+-keep class com.google.android.play.core.** { *; }
+-dontwarn com.google.android.play.core.**
