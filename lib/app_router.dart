@@ -5,23 +5,44 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart' as mk;
-import 'package:send_to_background/send_to_background.dart';
 import 'package:tikgood/core/utils/tik_tok_icons.dart';
 import 'features/home/presentation/pages/home_page.dart';
 import 'features/notes/presentation/pages/notes_page.dart';
 import 'features/settings/presentation/pages/settings_page.dart';
+import 'features/settings/presentation/pages/streak_settings_page.dart';
 import 'features/following/presentation/pages/following_page.dart';
 import 'features/courses/presentation/pages/add_course_page.dart';
 import 'features/courses/presentation/pages/course_profile_page.dart';
 import 'features/liked_videos/presentation/pages/liked_videos_page.dart';
 import 'features/home/presentation/bloc/app_cubit.dart';
 import 'features/home/presentation/bloc/app_state.dart';
+import 'features/goals/presentation/pages/goal_screen.dart';
+import 'features/goals/presentation/pages/goal_middleware_screen.dart';
+import 'features/goals/data/services/goal_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class AppRouter {
   static final router = GoRouter(
-    initialLocation: '/',
+    initialLocation: '/goal-middleware',
     routes: [
+      GoRoute(
+        path: '/goal-middleware',
+        builder: (context, state) {
+          final goalService = context.read<GoalService>();
+          if (!goalService.getGoalReminderEnabled()) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (context.mounted) {
+                context.go('/');
+              }
+            });
+            return const Scaffold(backgroundColor: Colors.black);
+          }
+          return GoalMiddlewareScreen(
+            onGoalSet: () => context.go('/'),
+            onSkip: () => context.go('/'),
+          );
+        },
+      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             ScaffoldWithNavBar(navigationShell: navigationShell),
@@ -53,6 +74,10 @@ class AppRouter {
             GoRoute(
                 path: '/liked-videos',
                 builder: (_, __) => const LikedVideosPage()),
+            GoRoute(
+                path: '/streak',
+                builder: (_, __) => const StreakSettingsPage()),
+            GoRoute(path: '/goals', builder: (_, __) => const GoalScreen()),
           ]),
         ],
       ),
