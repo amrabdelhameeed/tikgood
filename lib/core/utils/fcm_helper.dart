@@ -57,7 +57,7 @@ class NotificationHelper {
     const androidDetails = AndroidNotificationDetails(
       'TikGood',
       'TikGood Notifications',
-      icon: '@mipmap/ic_launcher',
+      icon: '@mipmap/launcher_icon',
       visibility: NotificationVisibility.public,
       groupAlertBehavior: GroupAlertBehavior.all,
       color: Color(0xFFFE2C55),
