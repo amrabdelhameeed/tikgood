@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart' as mk;
+import 'package:easy_localization/easy_localization.dart'; // Added for localization
 import '../../../../core/database/storage_service.dart';
 import '../../../../core/utils/thumbnail_cache_service.dart';
 import '../../../courses/data/models/video.dart';
@@ -45,9 +46,9 @@ class _LikedVideosPageState extends State<LikedVideosPage> {
         backgroundColor: Colors.black,
         elevation: 0,
         centerTitle: true,
-        title: const Text(
-          'Liked Videos',
-          style: TextStyle(
+        title: Text(
+          'Liked Videos'.tr(),
+          style: const TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.w700,
             letterSpacing: -0.5,
@@ -84,18 +85,18 @@ class _LikedVideosPageState extends State<LikedVideosPage> {
             color: Colors.white.withOpacity(0.1),
           ),
           const SizedBox(height: 16),
-          const Text(
-            'No liked videos yet',
-            style: TextStyle(
+          Text(
+            'No liked videos yet'.tr(),
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 16,
               fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
-            'Videos you like will appear here.',
-            style: TextStyle(color: Colors.white38, fontSize: 13),
+          Text(
+            'Videos you like will appear here.'.tr(),
+            style: const TextStyle(color: Colors.white38, fontSize: 13),
             textAlign: TextAlign.center,
           ),
         ],
@@ -125,7 +126,6 @@ class _LikedVideosPageState extends State<LikedVideosPage> {
   }
 
   void _playVideo(Video video) {
-    // Navigate to the video player page with video details using GoRouter
     context.push(
       '/video?path=${Uri.encodeComponent(video.filePath)}&name=${Uri.encodeComponent(video.name)}',
     );
@@ -173,7 +173,6 @@ class _VideoThumbnailState extends State<_VideoThumbnail> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // Video thumbnail
           if (_isLoading)
             Container(
               color: const Color(0xFF161722),
@@ -200,7 +199,6 @@ class _VideoThumbnailState extends State<_VideoThumbnail> {
                 ),
               ),
             ),
-          // Gradient overlay
           Positioned(
             bottom: 0,
             left: 0,
@@ -216,13 +214,12 @@ class _VideoThumbnailState extends State<_VideoThumbnail> {
               ),
             ),
           ),
-          // Video name overlay
           Positioned(
             left: 4,
             right: 4,
             bottom: 4,
             child: Text(
-              widget.video.name,
+              widget.video.name, // Usually dynamic content doesn't get .tr()
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 11,
@@ -232,7 +229,6 @@ class _VideoThumbnailState extends State<_VideoThumbnail> {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          // Like icon indicator
           const Positioned(
             left: 4,
             top: 4,
@@ -336,9 +332,9 @@ class _VideoPlayerPageState extends State<_VideoPlayerPage> {
               size: 64,
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Video not available',
-              style: TextStyle(
+            Text(
+              'Video not available'.tr(),
+              style: const TextStyle(
                 color: Colors.white,
                 fontSize: 16,
                 fontWeight: FontWeight.w600,

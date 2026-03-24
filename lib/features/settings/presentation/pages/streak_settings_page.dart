@@ -4,9 +4,7 @@ import 'package:easy_localization/easy_localization.dart';
 import '../../../../core/services/streak_service.dart';
 import '../../../../core/database/storage_service.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Design tokens (matches settings_page.dart)
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Design tokens ─────────────────────────────────────────────────────────────
 const _kBg = Color(0xFF000000);
 const _kSurface = Color(0xFF111111);
 const _kBorder = Color(0xFF2A2A2A);
@@ -48,11 +46,11 @@ class _StreakSettingsPageState extends State<StreakSettingsPage>
 
     _flameCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 1200),
     )..repeat(reverse: true);
 
-    _flameScale = Tween<double>(begin: 0.92, end: 1.08).animate(
-      CurvedAnimation(parent: _flameCtrl, curve: Curves.easeInOut),
+    _flameScale = Tween<double>(begin: 0.95, end: 1.05).animate(
+      CurvedAnimation(parent: _flameCtrl, curve: Curves.easeInOutSine),
     );
   }
 
@@ -64,12 +62,16 @@ class _StreakSettingsPageState extends State<StreakSettingsPage>
 
   Future<void> _toggleReminder(bool value) async {
     final streakSvc = context.read<StreakService>();
+    final storage = context.read<StorageService>();
+
+    setState(() => _reminderEnabled = value);
+    await storage.saveReminderEnabled(value);
+
     if (value) {
       await streakSvc.scheduleReminder(_reminderTime);
     } else {
       await streakSvc.cancelReminder();
     }
-    setState(() => _reminderEnabled = value);
   }
 
   Future<void> _pickTime() async {
@@ -80,9 +82,12 @@ class _StreakSettingsPageState extends State<StreakSettingsPage>
         data: ThemeData.dark().copyWith(
           colorScheme: const ColorScheme.dark(
             primary: _kCyan,
+            surface: _kSurface,
             onSurface: _kWhite,
           ),
-          dialogBackgroundColor: const Color(0xFF111111),
+          textButtonTheme: TextButtonThemeData(
+            style: TextButton.styleFrom(foregroundColor: _kCyan),
+          ),
         ),
         child: child!,
       ),
@@ -95,7 +100,6 @@ class _StreakSettingsPageState extends State<StreakSettingsPage>
           '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
       await storage.saveReminderTime(hhmm);
 
-      // Re-schedule with new time if enabled
       if (_reminderEnabled) {
         await context.read<StreakService>().scheduleReminder(picked);
       }
@@ -113,26 +117,27 @@ class _StreakSettingsPageState extends State<StreakSettingsPage>
         children: [
           const SizedBox(height: 32),
           _buildStreakHero(),
-          const SizedBox(height: 32),
+          const SizedBox(height: 40),
           _buildReminderSection(),
-          const SizedBox(height: 24),
+          const SizedBox(height: 32),
           _buildTipsSection(),
         ],
       ),
     );
   }
 
-  // ── App Bar ────────────────────────────────────────────────────────────────
-
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
       backgroundColor: Colors.black,
       elevation: 0,
       centerTitle: true,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+        onPressed: () => Navigator.pop(context),
+      ),
       title: Text(
         'streak_title'.tr(),
-        style: const TextStyle(
-            fontSize: 17, fontWeight: FontWeight.w700, letterSpacing: -0.5),
+        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
       ),
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),
@@ -141,224 +146,86 @@ class _StreakSettingsPageState extends State<StreakSettingsPage>
     );
   }
 
-  // ── Streak Hero ────────────────────────────────────────────────────────────
-
   Widget _buildStreakHero() {
     return Column(
       children: [
-        // Animated flame + count
-        AnimatedBuilder(
-          animation: _flameScale,
-          builder: (_, __) => Transform.scale(
-            scale: _flameScale.value,
-            child: Container(
-              width: 110,
-              height: 110,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    _kRed.withOpacity(0.25),
-                    Colors.transparent,
-                  ],
-                ),
+        ScaleTransition(
+          scale: _flameScale,
+          child: Container(
+            width: 120,
+            height: 120,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [_kRed.withOpacity(0.2), Colors.transparent],
               ),
-              child: const Center(
-                child: Text('🔥', style: TextStyle(fontSize: 64)),
-              ),
+            ),
+            child: const Center(
+              child: Text('🔥', style: TextStyle(fontSize: 72)),
             ),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         Text(
           '$_streak',
           style: const TextStyle(
             color: _kWhite,
-            fontSize: 56,
+            fontSize: 64,
             fontWeight: FontWeight.w900,
             letterSpacing: -2,
           ),
         ),
-        const SizedBox(height: 4),
         Text(
           _streak == 1 ? 'streak_day_singular'.tr() : 'streak_day_plural'.tr(),
           style: const TextStyle(
-            color: _kWhite60,
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-          ),
+              color: _kWhite60, fontSize: 16, fontWeight: FontWeight.w500),
         ),
-        const SizedBox(height: 12),
-        // Motivational sub-label
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          decoration: BoxDecoration(
-            color: _kRed.withOpacity(0.12),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: _kRed.withOpacity(0.3), width: 0.8),
-          ),
-          child: Text(
-            _streak >= 7
-                ? 'streak_badge_legend'.tr()
-                : _streak >= 3
-                    ? 'streak_badge_building'.tr()
-                    : 'streak_badge_start'.tr(),
-            style: const TextStyle(
-              color: _kRed,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.5,
-            ),
-          ),
-        ),
+        const SizedBox(height: 16),
+        _buildBadge(),
       ],
     );
   }
 
-  // ── Reminder Section ───────────────────────────────────────────────────────
+  Widget _buildBadge() {
+    String label = 'streak_badge_start'.tr();
+    if (_streak >= 7)
+      label = 'streak_badge_legend'.tr();
+    else if (_streak >= 3) label = 'streak_badge_building'.tr();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: _kRed.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: _kRed.withOpacity(0.3), width: 1),
+      ),
+      child: Text(
+        label.toUpperCase(),
+        style: const TextStyle(
+            color: _kRed,
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1),
+      ),
+    );
+  }
 
   Widget _buildReminderSection() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Section header
-          Row(
-            children: [
-              const Icon(Icons.notifications_rounded, color: _kCyan, size: 14),
-              const SizedBox(width: 6),
-              Text(
-                'streak_reminder_section'.tr(),
-                style: const TextStyle(
-                  color: _kCyan,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.5,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Padding(
-            padding: const EdgeInsets.only(left: 20),
-            child: Text(
-              'streak_reminder_subtitle'.tr(),
-              style: const TextStyle(color: _kWhite30, fontSize: 12),
-            ),
-          ),
-          const SizedBox(height: 10),
-          // Card
+          _sectionHeader(Icons.notifications_active_outlined,
+              'streak_reminder_section'.tr(), _kCyan),
+          const SizedBox(height: 12),
           Container(
-            decoration: BoxDecoration(
-              color: _kSurface,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: _kBorder, width: 0.8),
-            ),
+            decoration: _cardDecoration(),
             child: Column(
               children: [
-                // Toggle row
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 14),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 34,
-                        height: 34,
-                        decoration: BoxDecoration(
-                          color: _kCyan.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(Icons.alarm_rounded,
-                            color: _kCyan, size: 17),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'streak_daily_reminder'.tr(),
-                              style: const TextStyle(
-                                color: _kWhite,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              _reminderEnabled
-                                  ? 'streak_reminder_active'.tr()
-                                  : 'streak_reminder_off'.tr(),
-                              style: TextStyle(
-                                color: _reminderEnabled
-                                    ? _kCyan.withOpacity(0.8)
-                                    : _kWhite30,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Switch(
-                        value: _reminderEnabled,
-                        onChanged: _toggleReminder,
-                        activeColor: _kBg,
-                        activeTrackColor: _kCyan,
-                        inactiveThumbColor: _kWhite30,
-                        inactiveTrackColor: _kWhite12,
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                    ],
-                  ),
-                ),
-                // Divider
-                const Divider(color: _kBorder, height: 1, indent: 16),
-                // Time picker row
-                InkWell(
-                  onTap: _pickTime,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 14),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 34,
-                          height: 34,
-                          decoration: BoxDecoration(
-                            color: _kRed.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(Icons.schedule_rounded,
-                              color: _kRed, size: 17),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'streak_reminder_time'.tr(),
-                            style: const TextStyle(
-                              color: _kWhite,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                        Text(
-                          _reminderTime.format(context),
-                          style: const TextStyle(
-                            color: _kCyan,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        const Icon(Icons.chevron_right_rounded,
-                            color: _kWhite30, size: 18),
-                      ],
-                    ),
-                  ),
-                ),
+                _buildToggleRow(),
+                const Divider(color: _kBorder, height: 1, indent: 56),
+                _buildTimePickerRow(),
               ],
             ),
           ),
@@ -367,7 +234,49 @@ class _StreakSettingsPageState extends State<StreakSettingsPage>
     );
   }
 
-  // ── Tips Section ──────────────────────────────────────────────────────────
+  Widget _buildToggleRow() {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      leading: _iconBox(Icons.alarm_rounded, _kCyan),
+      title: Text('streak_daily_reminder'.tr(),
+          style: const TextStyle(
+              color: _kWhite, fontSize: 15, fontWeight: FontWeight.w500)),
+      subtitle: Text(
+        _reminderEnabled
+            ? 'streak_reminder_active'.tr()
+            : 'streak_reminder_off'.tr(),
+        style: TextStyle(
+            color: _reminderEnabled ? _kCyan : _kWhite30, fontSize: 13),
+      ),
+      trailing: Switch.adaptive(
+        value: _reminderEnabled,
+        onChanged: _toggleReminder,
+        activeColor: _kCyan,
+        activeTrackColor: _kCyan.withOpacity(0.3),
+      ),
+    );
+  }
+
+  Widget _buildTimePickerRow() {
+    return ListTile(
+      onTap: _pickTime,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      leading: _iconBox(Icons.schedule_rounded, _kRed),
+      title: Text('streak_reminder_time'.tr(),
+          style: const TextStyle(
+              color: _kWhite, fontSize: 15, fontWeight: FontWeight.w500)),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(_reminderTime.format(context),
+              style: const TextStyle(
+                  color: _kCyan, fontSize: 15, fontWeight: FontWeight.w600)),
+          const SizedBox(width: 8),
+          const Icon(Icons.chevron_right_rounded, color: _kWhite30, size: 20),
+        ],
+      ),
+    );
+  }
 
   Widget _buildTipsSection() {
     final tips = [
@@ -377,64 +286,77 @@ class _StreakSettingsPageState extends State<StreakSettingsPage>
     ];
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Icon(Icons.tips_and_updates_rounded,
-                  color: _kWhite30, size: 14),
-              const SizedBox(width: 6),
-              Text(
-                'streak_tips_section'.tr(),
-                style: const TextStyle(
-                  color: _kWhite30,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.5,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
+          _sectionHeader(Icons.lightbulb_outline_rounded,
+              'streak_tips_section'.tr(), _kWhite30),
+          const SizedBox(height: 12),
           Container(
-            decoration: BoxDecoration(
-              color: _kSurface,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: _kBorder, width: 0.8),
-            ),
+            decoration: _cardDecoration(),
             child: Column(
-              children: [
-                for (int i = 0; i < tips.length; i++) ...[
-                  if (i > 0)
-                    const Divider(color: _kBorder, height: 1, indent: 16),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 12),
-                    child: Row(
-                      children: [
-                        Text(tips[i].$1,
-                            style: const TextStyle(fontSize: 18)),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            tips[i].$2,
-                            style: const TextStyle(
-                              color: _kWhite60,
-                              fontSize: 13,
+              children: List.generate(
+                  tips.length,
+                  (i) => Column(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              children: [
+                                Text(tips[i].$1,
+                                    style: const TextStyle(fontSize: 20)),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                    child: Text(tips[i].$2,
+                                        style: const TextStyle(
+                                            color: _kWhite60,
+                                            fontSize: 14,
+                                            height: 1.4))),
+                              ],
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ],
+                          if (i < tips.length - 1)
+                            const Divider(
+                                color: _kBorder, height: 1, indent: 56),
+                        ],
+                      )),
             ),
           ),
         ],
       ),
     );
   }
+
+  Widget _sectionHeader(IconData icon, String title, Color color) {
+    return Row(
+      children: [
+        Icon(icon, color: color, size: 16),
+        const SizedBox(width: 8),
+        Text(title.toUpperCase(),
+            style: TextStyle(
+                color: color,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.2)),
+      ],
+    );
+  }
+
+  Widget _iconBox(IconData icon, Color color) {
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(10)),
+      child: Icon(icon, color: color, size: 18),
+    );
+  }
+
+  BoxDecoration _cardDecoration() => BoxDecoration(
+        color: _kSurface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _kBorder, width: 1),
+      );
 }

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:avatar_plus/avatar_plus.dart';
 import 'package:go_router/go_router.dart';
+import 'package:easy_localization/easy_localization.dart'; // Added for localization
 import '../../../home/presentation/bloc/app_cubit.dart';
 import '../../../home/presentation/bloc/app_state.dart';
 import '../../data/models/course.dart';
@@ -43,9 +44,9 @@ class _CourseProfilePageState extends State<CourseProfilePage> {
                 onPressed: () => context.pop(),
               ),
             ),
-            body: const Center(
-              child: Text('Course not found',
-                  style: TextStyle(color: Colors.white)),
+            body: Center(
+              child: Text('Course not found'.tr(), // Localized
+                  style: const TextStyle(color: Colors.white)),
             ),
           );
         }
@@ -113,10 +114,12 @@ class _CourseProfilePageState extends State<CourseProfilePage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _buildStatItem('$videoCount', 'Videos'),
+                _buildStatItem('$videoCount', 'Videos'.tr()), // Localized
                 const SizedBox(width: 32),
                 _buildStatItem(
-                    course.isFollowed ? 'Following' : 'Follow', 'Status'),
+                    (course.isFollowed ? 'Following' : 'Follow')
+                        .tr(), // Localized
+                    'Status'.tr()), // Localized
               ],
             ),
             const SizedBox(height: 16),
@@ -137,7 +140,8 @@ class _CourseProfilePageState extends State<CourseProfilePage> {
                       borderRadius: BorderRadius.circular(8)),
                 ),
                 child: Text(
-                  course.isFollowed ? 'Following ✓' : 'Follow',
+                  (course.isFollowed ? 'Following ✓' : 'Follow')
+                      .tr(), // Localized
                   style: const TextStyle(
                       fontWeight: FontWeight.bold, fontSize: 16),
                 ),
@@ -168,17 +172,18 @@ class _CourseProfilePageState extends State<CourseProfilePage> {
 
   Widget _buildVideoGrid(BuildContext context, List<Video> videos) {
     if (videos.isEmpty) {
-      return const SliverToBoxAdapter(
+      return SliverToBoxAdapter(
         child: Center(
           child: Padding(
-            padding: EdgeInsets.all(32),
+            padding: const EdgeInsets.all(32),
             child: Column(
               children: [
-                Icon(Icons.video_library_outlined,
+                const Icon(Icons.video_library_outlined,
                     size: 64, color: Colors.white12),
-                SizedBox(height: 16),
-                Text('No videos yet',
-                    style: TextStyle(color: Colors.white54, fontSize: 16)),
+                const SizedBox(height: 16),
+                Text('No videos yet'.tr(), // Localized
+                    style:
+                        const TextStyle(color: Colors.white54, fontSize: 16)),
               ],
             ),
           ),
@@ -210,7 +215,6 @@ class _CourseProfilePageState extends State<CourseProfilePage> {
   }
 
   void _playVideo(BuildContext context, Video video, List<Video> allVideos) {
-    // Navigate to the video player page with video details
     context.push(
       '/video?path=${Uri.encodeComponent(video.filePath)}&name=${Uri.encodeComponent(video.name)}',
     );
@@ -279,7 +283,6 @@ class _VideoGridItemState extends State<_VideoGridItem> {
                     color: Color(0xFFFE2C55), size: 40),
               ),
             ),
-          // Gradient overlay
           Positioned(
             bottom: 0,
             left: 0,
@@ -295,7 +298,6 @@ class _VideoGridItemState extends State<_VideoGridItem> {
               ),
             ),
           ),
-          // Video name
           Positioned(
             bottom: 4,
             left: 4,
@@ -310,7 +312,6 @@ class _VideoGridItemState extends State<_VideoGridItem> {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          // Watch progress badge
           if (widget.video.lastSecondWatched > 0)
             Positioned(
               top: 4,
