@@ -122,7 +122,7 @@ class TikGoodApp extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           localizationsDelegates: context.localizationDelegates,
           supportedLocales: context.supportedLocales,
-          locale: context.locale, // <--- استخدم context.locale بدل Locale('ar')
+          locale: context.locale,
           theme: ThemeData.dark().copyWith(
             scaffoldBackgroundColor: Colors.black,
             primaryColor: const Color(0xFFFE2C55),

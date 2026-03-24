@@ -1158,5 +1158,20 @@
   "settings_fetch_error": "Failed to fetch settings",
   "Liked Videos": "Liked Videos",
   "learning_path_title": "Learning Path",
-  "last_watched_label": "Last watched"
+  "last_watched_label": "Last watched",
+  "Or select from history": "Or select from history",
+  "Recent goals": "Recent goals",
+  "goals_screen_title": "Goals",
+  "goals_active_label": "Active",
+  "goals_today_at": "Today at {time}",
+  "goals_yesterday_at": "Yesterday at {time}",
+  "goals_set_at": "Set at {date}",
+  "goals_delete_title": "Delete Goal",
+  "goals_delete_confirm": "Are you sure you want to delete this goal?",
+  "goals_clear_title": "Clear Goals",
+  "goals_clear_confirm": "Are you sure you want to clear all goals?",
+  "clear_all": "Clear All",
+  "goals_empty_title": "No Goals Yet",
+  "goals_empty_subtitle": "You haven’t set any goals yet. Start now!",
+  "goals_history_label": "History"
 }

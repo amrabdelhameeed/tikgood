@@ -58,9 +58,9 @@ class _GoalScreenState extends State<GoalScreen> {
         DateFormat.jm(context.locale.toString()).format(dateTime);
 
     if (goalDate == today) {
-      return 'goals_today_at'.tr(args: [timeString]);
+      return 'goals_today_at'.tr(namedArgs: {'time': timeString});
     } else if (goalDate == today.subtract(const Duration(days: 1))) {
-      return 'goals_yesterday_at'.tr(args: [timeString]);
+      return 'goals_yesterday_at'.tr(namedArgs: {'time': timeString});
     } else {
       return DateFormat.yMMMd(context.locale.toString())
           .add_jm()
@@ -216,8 +216,9 @@ class _GoalScreenState extends State<GoalScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'goals_set_at'
-                    .tr(args: [_formatTimestamp(_currentGoal!.createdAt)]),
+                'goals_set_at'.tr(namedArgs: {
+                  'date': _formatTimestamp(_currentGoal!.createdAt)
+                }),
                 style: const TextStyle(color: _kWhite30, fontSize: 12),
               ),
               IconButton(
