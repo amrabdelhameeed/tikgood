@@ -2,12 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:easy_localization/easy_localization.dart'; // Added
 import '../../data/models/goal.dart';
 import '../../data/services/goal_service.dart';
 
-/// Screen that displays the history of all goals set by the user.
-/// Goals are sorted with most recent first, showing goal text and
-/// human-friendly timestamps.
 class GoalScreen extends StatefulWidget {
   const GoalScreen({super.key});
 
@@ -17,13 +15,12 @@ class GoalScreen extends StatefulWidget {
 
 class _GoalScreenState extends State<GoalScreen> {
   List<Goal> _goals = [];
+  Goal? _currentGoal;
   bool _isLoading = true;
 
   // TikTok design tokens
   static const Color _kBg = Color(0xFF000000);
   static const Color _kSurface = Color(0xFF111111);
-  static const Color _kSurface2 = Color(0xFF1A1A1A);
-  static const Color _kBorder = Color(0xFF2A2A2A);
   static const Color _kRed = Color(0xFFFE2C55);
   static const Color _kWhite = Colors.white;
   static const Color _kWhite60 = Color(0x99FFFFFF);
@@ -39,22 +36,35 @@ class _GoalScreenState extends State<GoalScreen> {
   void _loadGoals() {
     final goalService = context.read<GoalService>();
     setState(() {
-      _goals = goalService.getAllGoals();
+      final allGoals = goalService.getAllGoals();
+      _currentGoal = goalService.getCurrentGoal();
+
+      if (_currentGoal == null && allGoals.isNotEmpty) {
+        _currentGoal = allGoals.first;
+      }
+
+      _goals = allGoals.where((g) => g.id != _currentGoal?.id).toList();
       _isLoading = false;
     });
   }
 
+  /// Formats timestamp with localized relative labels
   String _formatTimestamp(DateTime dateTime) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final goalDate = DateTime(dateTime.year, dateTime.month, dateTime.day);
 
+    final timeString =
+        DateFormat.jm(context.locale.toString()).format(dateTime);
+
     if (goalDate == today) {
-      return 'Today at ${DateFormat.jm().format(dateTime)}';
+      return 'goals_today_at'.tr(args: [timeString]);
     } else if (goalDate == today.subtract(const Duration(days: 1))) {
-      return 'Yesterday at ${DateFormat.jm().format(dateTime)}';
+      return 'goals_yesterday_at'.tr(args: [timeString]);
     } else {
-      return DateFormat('MMM d, yyyy \'at\' h:mm a').format(dateTime);
+      return DateFormat.yMMMd(context.locale.toString())
+          .add_jm()
+          .format(dateTime);
     }
   }
 
@@ -63,28 +73,19 @@ class _GoalScreenState extends State<GoalScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: _kSurface,
-        title: const Text(
-          'Delete Goal',
-          style: TextStyle(color: _kWhite),
-        ),
-        content: const Text(
-          'Are you sure you want to delete this goal?',
-          style: TextStyle(color: _kWhite60),
-        ),
+        title: Text('goals_delete_title'.tr(),
+            style: const TextStyle(color: _kWhite)),
+        content: Text('goals_delete_confirm'.tr(),
+            style: const TextStyle(color: _kWhite60)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: _kWhite60),
-            ),
+            child:
+                Text('cancel'.tr(), style: const TextStyle(color: _kWhite60)),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text(
-              'Delete',
-              style: TextStyle(color: _kRed),
-            ),
+            child: Text('delete'.tr(), style: const TextStyle(color: _kRed)),
           ),
         ],
       ),
@@ -102,28 +103,19 @@ class _GoalScreenState extends State<GoalScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: _kSurface,
-        title: const Text(
-          'Clear All Goals',
-          style: TextStyle(color: _kWhite),
-        ),
-        content: const Text(
-          'This will delete all your goal history. This action cannot be undone.',
-          style: TextStyle(color: _kWhite60),
-        ),
+        title: Text('goals_clear_title'.tr(),
+            style: const TextStyle(color: _kWhite)),
+        content: Text('goals_clear_confirm'.tr(),
+            style: const TextStyle(color: _kWhite60)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: _kWhite60),
-            ),
+            child:
+                Text('cancel'.tr(), style: const TextStyle(color: _kWhite60)),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text(
-              'Clear All',
-              style: TextStyle(color: _kRed),
-            ),
+            child: Text('clear_all'.tr(), style: const TextStyle(color: _kRed)),
           ),
         ],
       ),
@@ -147,27 +139,22 @@ class _GoalScreenState extends State<GoalScreen> {
           icon: const Icon(Icons.arrow_back, color: _kWhite),
           onPressed: () => context.pop(),
         ),
-        title: const Text(
-          'Goals',
-          style: TextStyle(
-            color: _kWhite,
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-          ),
+        title: Text(
+          'goals_screen_title'.tr(),
+          style: const TextStyle(
+              color: _kWhite, fontSize: 18, fontWeight: FontWeight.w700),
         ),
         actions: [
-          if (_goals.isNotEmpty)
+          if (_goals.isNotEmpty || _currentGoal != null)
             IconButton(
-              icon: const Icon(Icons.delete_outline, color: _kWhite60),
+              icon: const Icon(Icons.delete_sweep_outlined, color: _kWhite60),
               onPressed: _clearAllGoals,
             ),
         ],
       ),
       body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: _kRed),
-            )
-          : _goals.isEmpty
+          ? const Center(child: CircularProgressIndicator(color: _kRed))
+          : (_goals.isEmpty && _currentGoal == null)
               ? _buildEmptyState()
               : _buildGoalsList(),
     );
@@ -178,27 +165,67 @@ class _GoalScreenState extends State<GoalScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(
-            Icons.flag_outlined,
-            color: _kWhite30,
-            size: 64,
-          ),
+          const Icon(Icons.flag_outlined, color: _kWhite30, size: 64),
           const SizedBox(height: 16),
-          const Text(
-            'No goals yet',
-            style: TextStyle(
-              color: _kWhite,
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          Text('goals_empty_title'.tr(),
+              style: const TextStyle(
+                  color: _kWhite, fontSize: 18, fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),
-          const Text(
-            'Set a goal when you open the app',
-            style: TextStyle(
-              color: _kWhite60,
-              fontSize: 16,
-            ),
+          Text('goals_empty_subtitle'.tr(),
+              style: const TextStyle(color: _kWhite60, fontSize: 14),
+              textAlign: TextAlign.center),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCurrentGoal() {
+    if (_currentGoal == null) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: _kSurface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _kRed.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.track_changes, color: _kRed, size: 18),
+              const SizedBox(width: 8),
+              Text(
+                'goals_active_label'.tr().toUpperCase(),
+                style: const TextStyle(
+                    color: _kRed,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.1),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(_currentGoal!.text,
+              style: const TextStyle(
+                  color: _kWhite, fontSize: 18, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'goals_set_at'
+                    .tr(args: [_formatTimestamp(_currentGoal!.createdAt)]),
+                style: const TextStyle(color: _kWhite30, fontSize: 12),
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete_outline,
+                    color: _kWhite30, size: 20),
+                onPressed: () => _deleteGoal(_currentGoal!.id),
+              ),
+            ],
           ),
         ],
       ),
@@ -206,49 +233,47 @@ class _GoalScreenState extends State<GoalScreen> {
   }
 
   Widget _buildGoalsList() {
-    return ListView.builder(
+    return ListView(
       padding: const EdgeInsets.all(16),
-      itemCount: _goals.length,
-      itemBuilder: (context, index) {
-        final goal = _goals[index];
-        return Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          decoration: BoxDecoration(
-            color: _kSurface,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: _kWhite12),
-          ),
-          child: ListTile(
-            contentPadding: const EdgeInsets.all(16),
-            title: Text(
-              goal.text,
+      children: [
+        _buildCurrentGoal(),
+        if (_goals.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12, left: 4),
+            child: Text(
+              'goals_history_label'.tr().toUpperCase(),
               style: const TextStyle(
-                color: _kWhite,
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            subtitle: Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                _formatTimestamp(goal.createdAt),
-                style: const TextStyle(
                   color: _kWhite30,
-                  fontSize: 13,
-                ),
-              ),
-            ),
-            trailing: IconButton(
-              icon: const Icon(
-                Icons.delete_outline,
-                color: _kWhite30,
-                size: 20,
-              ),
-              onPressed: () => _deleteGoal(goal.id),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.1),
             ),
           ),
-        );
-      },
+          ..._goals.map((goal) => _buildGoalItem(goal)),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildGoalItem(Goal goal) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: _kSurface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _kWhite12),
+      ),
+      child: ListTile(
+        title: Text(goal.text,
+            style: const TextStyle(
+                color: _kWhite, fontSize: 15, fontWeight: FontWeight.w500)),
+        subtitle: Text(_formatTimestamp(goal.createdAt),
+            style: const TextStyle(color: _kWhite30, fontSize: 12)),
+        trailing: IconButton(
+          icon: const Icon(Icons.delete_outline, color: _kWhite30, size: 20),
+          onPressed: () => _deleteGoal(goal.id),
+        ),
+      ),
     );
   }
 }
