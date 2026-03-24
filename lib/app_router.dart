@@ -1,11 +1,16 @@
 import 'dart:io';
 
 import 'package:background_on_back/background_on_back.dart';
+import 'package:clarity_flutter/clarity_flutter.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:firebase_analytics/observer.dart'
+    show FirebaseAnalyticsObserver;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart' as mk;
 import 'package:tikgood/core/utils/tik_tok_icons.dart';
+import 'package:easy_localization/easy_localization.dart'; // Added for localization
 import 'features/home/presentation/pages/home_page.dart';
 import 'features/notes/presentation/pages/notes_page.dart';
 import 'features/settings/presentation/pages/settings_page.dart';
@@ -21,12 +26,36 @@ import 'features/goals/presentation/pages/goal_middleware_screen.dart';
 import 'features/goals/data/services/goal_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+class MyRouterObserver extends NavigatorObserver {
+  @override
+  void didPush(Route route, Route? previousRoute) {
+    Clarity.setCurrentScreenName(route.settings.name ?? "");
+    debugPrint('Current route: ${route.settings.name}');
+  }
+
+  @override
+  void didPop(Route route, Route? previousRoute) {
+    debugPrint('Back to route: ${previousRoute?.settings.name}');
+  }
+}
+
 class AppRouter {
   static final router = GoRouter(
+    observers: [
+      MyRouterObserver(),
+      FirebaseAnalyticsObserver(
+        nameExtractor: (settings) {
+          return settings.name;
+        },
+        analytics: FirebaseAnalytics.instance,
+        routeFilter: (_) => true,
+      ),
+    ],
     initialLocation: '/goal-middleware',
     routes: [
       GoRoute(
         path: '/goal-middleware',
+        name: 'goal-middleware',
         builder: (context, state) {
           final goalService = context.read<GoalService>();
           if (!goalService.getGoalReminderEnabled()) {
@@ -48,9 +77,11 @@ class AppRouter {
             ScaffoldWithNavBar(navigationShell: navigationShell),
         branches: [
           StatefulShellBranch(routes: [
-            GoRoute(path: '/', builder: (_, __) => const HomePage()),
+            GoRoute(
+                path: '/', name: 'home', builder: (_, __) => const HomePage()),
             GoRoute(
               path: '/course/:courseId',
+              name: 'course',
               builder: (context, state) {
                 final courseId =
                     Uri.decodeComponent(state.pathParameters['courseId']!);
@@ -60,30 +91,45 @@ class AppRouter {
           ]),
           StatefulShellBranch(routes: [
             GoRoute(
-                path: '/favorites', builder: (_, __) => const FavoritesPage()),
-          ]),
-          StatefulShellBranch(routes: [
-            GoRoute(path: '/add', builder: (_, __) => const AddCoursePage()),
-          ]),
-          StatefulShellBranch(routes: [
-            GoRoute(path: '/notes', builder: (_, __) => const NotesPage()),
+                path: '/favorites',
+                name: 'favorites',
+                builder: (_, __) => const FavoritesPage()),
           ]),
           StatefulShellBranch(routes: [
             GoRoute(
-                path: '/settings', builder: (_, __) => const SettingsPage()),
+                path: '/add',
+                name: 'add',
+                builder: (_, __) => const AddCoursePage()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+                path: '/notes',
+                name: 'notes',
+                builder: (_, __) => const NotesPage()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+                path: '/settings',
+                name: 'settings',
+                builder: (_, __) => const SettingsPage()),
             GoRoute(
                 path: '/liked-videos',
+                name: 'liked-videos',
                 builder: (_, __) => const LikedVideosPage()),
             GoRoute(
                 path: '/streak',
+                name: 'streak',
                 builder: (_, __) => const StreakSettingsPage()),
-            GoRoute(path: '/goals', builder: (_, __) => const GoalScreen()),
+            GoRoute(
+                path: '/goals',
+                name: 'goals',
+                builder: (_, __) => const GoalScreen()),
           ]),
         ],
       ),
-      // Video player route (full screen)
       GoRoute(
         path: '/video',
+        name: 'video',
         builder: (context, state) {
           final videoPath = state.uri.queryParameters['path'] ?? '';
           final videoName = state.uri.queryParameters['name'] ?? 'Video';
@@ -155,7 +201,6 @@ class ScaffoldWithNavBar extends StatelessWidget {
 
   void _onNavTap(BuildContext context, int index) {
     navigationShell.goBranch(index);
-    // Update nav index in cubit
     context.read<AppCubit>().setCurrentNavIndex(index);
   }
 
@@ -187,7 +232,7 @@ class ScaffoldWithNavBar extends StatelessWidget {
                     child: SafeArea(
                       top: false,
                       child: Container(
-                        height: 60, // ↑ from 50 — more room to tap
+                        height: 60,
                         decoration: const BoxDecoration(
                           border: Border(
                             top: BorderSide(color: Colors.white, width: 0.2),
@@ -199,16 +244,14 @@ class ScaffoldWithNavBar extends StatelessWidget {
                               index: 0,
                               currentIndex: navigationShell.currentIndex,
                               icon: TikTokIcons.home,
-                              label: 'Home',
+                              label: 'home'.tr(), // Localized
                               onTap: () => _onNavTap(context, 0),
                             ),
-                            // Following tab
                             Expanded(
                               child: GestureDetector(
                                 onTap: () => _onNavTap(context, 1),
                                 behavior: HitTestBehavior.opaque,
                                 child: SizedBox(
-                                  // Full height = full tap area
                                   height: double.infinity,
                                   child: Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
@@ -219,7 +262,7 @@ class ScaffoldWithNavBar extends StatelessWidget {
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
-                                        'Following',
+                                        'following'.tr(), // Localized
                                         style: TextStyle(
                                           color: Colors.white.withOpacity(
                                               navigationShell.currentIndex == 1
@@ -244,14 +287,14 @@ class ScaffoldWithNavBar extends StatelessWidget {
                               index: 3,
                               currentIndex: navigationShell.currentIndex,
                               icon: TikTokIcons.messages,
-                              label: 'Inbox',
+                              label: 'inbox'.tr(), // Localized
                               onTap: () => _onNavTap(context, 3),
                             ),
                             _NavItem(
                               index: 4,
                               currentIndex: navigationShell.currentIndex,
                               icon: TikTokIcons.profile,
-                              label: 'Profile',
+                              label: 'profile'.tr(), // Localized
                               onTap: () => _onNavTap(context, 4),
                             ),
                           ],
@@ -289,7 +332,6 @@ class _NavItem extends StatelessWidget {
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
         child: SizedBox(
-          // Fills the full nav bar height → maximum tap target
           height: double.infinity,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -373,10 +415,6 @@ class _CustomAddButton extends StatelessWidget {
     );
   }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// VideoPlayerPage — shared video player for all video playback
-// ─────────────────────────────────────────────────────────────────────────────
 
 class VideoPlayerPage extends StatefulWidget {
   final String videoPath;
@@ -471,9 +509,9 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
               size: 64,
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Video not available',
-              style: TextStyle(
+            Text(
+              'video_not_available'.tr(), // Localized
+              style: const TextStyle(
                 color: Colors.white,
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
