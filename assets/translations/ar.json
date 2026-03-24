@@ -1269,5 +1269,20 @@
   "settings_fetch_error": "فشل في جلب الإعدادات",
   "Liked Videos": "الفيديوهات المعجوبة",
   "learning_path_title": "مسار التعلم",
-  "last_watched_label": "آخر مشاهداتك"
+  "last_watched_label": "آخر مشاهداتك",
+  "Or select from history": "أو اختر من المحفوظ",
+  "Recent goals": "الأهداف الأخيرة",
+  "goals_screen_title": "الأهداف",
+  "goals_active_label": "نشط",
+  "goals_today_at": "اليوم في {time}",
+  "goals_yesterday_at": "الأمس في {time}",
+  "goals_set_at": "تم التعيين في {date}",
+  "goals_delete_title": "حذف الهدف",
+  "goals_delete_confirm": "هل أنت متأكد من حذف هذا الهدف؟",
+  "goals_clear_title": "مسح الأهداف",
+  "goals_clear_confirm": "هل أنت متأكد من مسح كل الأهداف؟",
+  "clear_all": "مسح الكل",
+  "goals_empty_title": "لا توجد أهداف بعد",
+  "goals_empty_subtitle": "لم تقم بتعيين أي أهداف بعد. ابدأ الآن!",
+  "goals_history_label": "السجل"
 }

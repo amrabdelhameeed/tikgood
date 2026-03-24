@@ -829,38 +829,38 @@ class _SettingsPageState extends State<SettingsPage>
     return Column(
       children: [
         // Mini TikTok-style logo row
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 18,
-              height: 18,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [_kCyan, _kRed],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: const Icon(Icons.music_note_rounded,
-                  color: _kWhite, size: 11),
-            ),
-            const SizedBox(width: 6),
-            const Text(
-              'TikGood',
-              style: TextStyle(
-                color: _kWhite60,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.3,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
+        // Row(
+        //   mainAxisAlignment: MainAxisAlignment.center,
+        //   children: [
+        //     Container(
+        //       width: 18,
+        //       height: 18,
+        //       decoration: BoxDecoration(
+        //         gradient: const LinearGradient(
+        //           colors: [_kCyan, _kRed],
+        //           begin: Alignment.topLeft,
+        //           end: Alignment.bottomRight,
+        //         ),
+        //         borderRadius: BorderRadius.circular(4),
+        //       ),
+        //       child: const Icon(Icons.music_note_rounded,
+        //           color: _kWhite, size: 11),
+        //     ),
+        //     const SizedBox(width: 6),
+        //     const Text(
+        //       'TikGood',
+        //       style: TextStyle(
+        //         color: _kWhite60,
+        //         fontSize: 13,
+        //         fontWeight: FontWeight.w700,
+        //         letterSpacing: -0.3,
+        //       ),
+        //     ),
+        //   ],
+        // ),
+        // const SizedBox(height: 6),
         Text(
-          '${'settings_version_label'.tr()} 1.0.4  ·  ${'settings_auto_save_info'.tr()}',
+          '${'settings_version_label'.tr()} 0.0.1}',
           style: const TextStyle(color: _kWhite30, fontSize: 11),
         ),
       ],

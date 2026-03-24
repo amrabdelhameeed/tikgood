@@ -75,7 +75,6 @@ class _GoalMiddlewareScreenState extends State<GoalMiddlewareScreen> {
   }
 
   Future<void> _submitGoal() async {
-    context.setLocale(Locale('ar'));
     final goalText = _goalController.text.trim();
     if (goalText.isEmpty) return;
 
