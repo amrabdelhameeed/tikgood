@@ -16,11 +16,32 @@ class GoalService {
     _settingsBox = await Hive.openBox('goal_settings');
   }
 
-  /// Save a new goal (adds to history, doesn't overwrite)
+  /// Save a new goal (adds to history, doesn't overwrite unless text matches perfectly)
   Future<Goal> saveGoal(String text) async {
+    final trimmedText = text.trim();
+    
+    // Find if a goal with same text exists (case-insensitive)
+    final existingGoal = _goalsBox.values.cast<Goal?>().firstWhere(
+      (g) => g?.text.trim().toLowerCase() == trimmedText.toLowerCase(),
+      orElse: () => null,
+    );
+
+    if (existingGoal != null) {
+      // Update its timestamp to bubble it to the top
+      final updatedGoal = Goal(
+        id: existingGoal.id,
+        text: existingGoal.text,
+        createdAt: DateTime.now(),
+      );
+      await _goalsBox.put(updatedGoal.id, updatedGoal);
+      await _settingsBox.put(_currentGoalKey, updatedGoal.id);
+      return updatedGoal;
+    }
+
+    // Create brand new goal
     final goal = Goal(
       id: _uuid.v4(),
-      text: text,
+      text: trimmedText,
       createdAt: DateTime.now(),
     );
     await _goalsBox.put(goal.id, goal);

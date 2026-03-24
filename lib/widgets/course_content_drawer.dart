@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:easy_localization/easy_localization.dart'; // Added for localization
 import '../features/courses/data/models/video.dart';
 import '../features/courses/data/models/course.dart';
 import 'package:avatar_plus/avatar_plus.dart';
@@ -79,7 +80,7 @@ class CourseContentDrawer extends StatelessWidget {
               Icon(Icons.layers_outlined, color: colorScheme.primary, size: 28),
               const SizedBox(width: 12),
               Text(
-                "Learning Path",
+                "learning_path_title".tr(), // Localized title
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w900,
@@ -89,12 +90,6 @@ class CourseContentDrawer extends StatelessWidget {
               ),
             ],
           ),
-          // const SizedBox(height: 8),
-          // LinearProgressIndicator(
-          //   value: 0.4, // Example progress
-          //   backgroundColor: colorScheme.surfaceContainerHighest,
-          //   borderRadius: BorderRadius.circular(10),
-          // ),
         ],
       ),
     );
@@ -150,8 +145,8 @@ class CourseContentDrawer extends StatelessWidget {
         ),
         // LEVEL 2: SECTIONS (Inside the Course)
         ...courseEntry.value.entries.map((subPathEntry) {
-          final title =
-              subPathEntry.key?.replaceAll('\\', '/') ?? "General Concepts";
+          final title = subPathEntry.key?.replaceAll('\\', '/') ??
+              "general_concepts".tr(); // Localized fallback
           final videosInPath = subPathEntry.value;
           final isExpanded = videosInPath
               .any((v) => v.id == currentVideoId || v.id == lastViewedVideoId);
@@ -189,7 +184,7 @@ class CourseContentDrawer extends StatelessWidget {
                   ),
                 ),
                 children: [
-                  // LEVEL 3: VIDEOS (Indented to show they belong to the section)
+                  // LEVEL 3: VIDEOS
                   Padding(
                     padding: const EdgeInsets.only(left: 20, bottom: 8),
                     child: Column(
@@ -266,9 +261,9 @@ class CourseContentDrawer extends StatelessWidget {
                         color: const Color(0xFFFE2C55).withOpacity(0.15),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Text(
-                        'Last watched',
-                        style: TextStyle(
+                      child: Text(
+                        'last_watched_label'.tr(), // Localized label
+                        style: const TextStyle(
                           color: Color(0xFFFE2C55),
                           fontSize: 9,
                           fontWeight: FontWeight.w600,
