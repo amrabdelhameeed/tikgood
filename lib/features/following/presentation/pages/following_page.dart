@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:easy_localization/easy_localization.dart'; // Added for .tr()
 import '../../../home/presentation/bloc/app_cubit.dart';
 import '../../../home/presentation/bloc/app_state.dart';
 import 'package:avatar_plus/avatar_plus.dart';
@@ -20,14 +21,17 @@ class FavoritesPage extends StatelessWidget {
         backgroundColor: Colors.black,
         elevation: 0,
         centerTitle: true,
-        title: const Text('Following',
-            style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.5)),
+        title: Text(
+          'following_title'.tr(), // Updated with .tr()
+          style: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.5,
+          ),
+        ),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
-          child: Container(color: Color(0xFF252525), height: 0.5),
+          child: Container(color: const Color(0xFF252525), height: 0.5),
         ),
       ),
       body: BlocBuilder<AppCubit, AppState>(
@@ -69,13 +73,16 @@ class FavoritesPage extends StatelessWidget {
                       ),
                     ),
 
+                    const SizedBox(width: 12), // Added small gap for alignment
+
                     // --- Course Info ---
                     Expanded(
                       child: GestureDetector(
                         onTap: () => context
                             .push('/course/${Uri.encodeComponent(course.id)}'),
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.center,
+                          crossAxisAlignment:
+                              CrossAxisAlignment.start, // Fixed alignment
                           children: [
                             Text(
                               course.name,
@@ -87,23 +94,12 @@ class FavoritesPage extends StatelessWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
-                            // const SizedBox(height: 2),
-                            // Text(
-                            //   course.name
-                            //       .toLowerCase()
-                            //       .replaceAll(' ', '_'), // Mock handle
-                            //   style: const TextStyle(
-                            //     color: Colors.white38,
-                            //     fontSize: 13,
-                            //   ),
-                            // ),
                           ],
                         ),
                       ),
                     ),
 
                     // --- TikTok Style Follow Button ---
-                    const Spacer(),
                     _buildFollowButton(context, course.id, isFollowed),
                   ],
                 ),
@@ -130,7 +126,9 @@ class FavoritesPage extends StatelessWidget {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
         ),
         child: Text(
-          isFollowed ? 'Following' : 'Follow',
+          isFollowed
+              ? 'following_btn'.tr()
+              : 'follow_btn'.tr(), // Updated with .tr()
           style: TextStyle(
             color: isFollowed ? Colors.white.withOpacity(0.9) : Colors.white,
             fontSize: 13,
@@ -149,15 +147,15 @@ class FavoritesPage extends StatelessWidget {
           Icon(Icons.person_add_alt_1_outlined,
               size: 64, color: Colors.white.withOpacity(0.1)),
           const SizedBox(height: 16),
-          const Text(
-            'No courses followed',
-            style: TextStyle(
+          Text(
+            'no_courses_followed'.tr(), // Updated with .tr()
+            style: const TextStyle(
                 color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 6),
-          const Text(
-            'Courses you follow will appear here.',
-            style: TextStyle(color: Colors.white38, fontSize: 13),
+          Text(
+            'no_courses_subtitle'.tr(), // Updated with .tr()
+            style: const TextStyle(color: Colors.white38, fontSize: 13),
             textAlign: TextAlign.center,
           ),
         ],
