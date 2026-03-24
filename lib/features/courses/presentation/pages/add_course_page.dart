@@ -180,7 +180,8 @@ class _AddCoursePageState extends State<AddCoursePage> {
           decoration: BoxDecoration(
             color: const Color(0xFF0D0D0D),
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white.withOpacity(0.06), width: 1.5),
+            border:
+                Border.all(color: Colors.white.withOpacity(0.06), width: 1.5),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -282,69 +283,6 @@ class _AddCoursePageState extends State<AddCoursePage> {
             ),
           ),
           trailing,
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCourseTile(BuildContext context, Course course) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF121212),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: course.isFollowed
-                    ? [_tikTokRed, _tikTokRed.withOpacity(0.6)]
-                    : [Colors.white10, Colors.white10],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              course.isFollowed
-                  ? Icons.collections_bookmark_rounded
-                  : Icons.folder_copy_rounded,
-              color: course.isFollowed ? Colors.white : Colors.white24,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(course.name,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14)),
-                const SizedBox(height: 2),
-                Text(
-                  course.folderPath.split(RegExp(r'[/\\]')).last,
-                  style: TextStyle(
-                      color: Colors.white.withOpacity(0.3), fontSize: 11),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-          Switch.adaptive(
-            value: course.isFollowed,
-            onChanged: (v) =>
-                context.read<AppCubit>().setFollowCourse(course.id, v),
-            activeColor: _tikTokRed,
-          ),
         ],
       ),
     );

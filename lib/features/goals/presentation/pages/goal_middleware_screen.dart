@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:easy_localization/easy_localization.dart'; // Ensure this is imported
+import '../../data/models/goal.dart';
 import '../../data/services/goal_service.dart';
 import '../../data/services/goal_notification_service.dart';
 
@@ -23,6 +25,7 @@ class _GoalMiddlewareScreenState extends State<GoalMiddlewareScreen> {
   final TextEditingController _goalController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   bool _isLoading = false;
+  List<Goal> _recentGoals = [];
 
   // TikTok design tokens
   static const Color _kBg = Color(0xFF000000);
@@ -36,10 +39,30 @@ class _GoalMiddlewareScreenState extends State<GoalMiddlewareScreen> {
   @override
   void initState() {
     super.initState();
+
+    final goalService = context.read<GoalService>();
+    final allGoals = goalService.getAllGoals();
+
+    final uniqueTexts = <String>{};
+    for (final g in allGoals) {
+      if (uniqueTexts.length >= 7) break;
+      if (uniqueTexts.add(g.text)) {
+        _recentGoals.add(g);
+      }
+    }
+
+    if (_recentGoals.isNotEmpty) {
+      _goalController.text = _recentGoals.first.text;
+    }
+
     // Auto-focus the text field after a short delay
     Future.delayed(const Duration(milliseconds: 300), () {
       if (mounted) {
         _focusNode.requestFocus();
+        if (_goalController.text.isNotEmpty) {
+          _goalController.selection = TextSelection.fromPosition(
+              TextPosition(offset: _goalController.text.length));
+        }
       }
     });
   }
@@ -52,6 +75,7 @@ class _GoalMiddlewareScreenState extends State<GoalMiddlewareScreen> {
   }
 
   Future<void> _submitGoal() async {
+    context.setLocale(Locale('ar'));
     final goalText = _goalController.text.trim();
     if (goalText.isEmpty) return;
 
@@ -69,8 +93,8 @@ class _GoalMiddlewareScreenState extends State<GoalMiddlewareScreen> {
       debugPrint('Error saving goal: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to save goal. Please try again.'),
+          SnackBar(
+            content: Text('Failed to save goal. Please try again.'.tr()),
             backgroundColor: _kRed,
           ),
         );
@@ -100,26 +124,26 @@ class _GoalMiddlewareScreenState extends State<GoalMiddlewareScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Title
-                const Text(
-                  '🎯',
+                Text(
+                  '🎯'.tr(),
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 48),
+                  style: const TextStyle(fontSize: 48),
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  'What\'s your goal?',
+                Text(
+                  'What\'s your goal?'.tr(),
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: _kWhite,
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Set an intention for this session',
+                Text(
+                  'Set an intention for this session'.tr(),
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: _kWhite60,
                     fontSize: 16,
                   ),
@@ -143,19 +167,79 @@ class _GoalMiddlewareScreenState extends State<GoalMiddlewareScreen> {
                     maxLines: 3,
                     maxLength: 200,
                     textCapitalization: TextCapitalization.sentences,
-                    decoration: const InputDecoration(
-                      hintText: 'What\'s your goal right now?',
-                      hintStyle: TextStyle(
+                    decoration: InputDecoration(
+                      hintText: 'What\'s your goal right now?'.tr(),
+                      hintStyle: const TextStyle(
                         color: _kWhite30,
                         fontSize: 18,
                       ),
                       border: InputBorder.none,
-                      contentPadding: EdgeInsets.all(16),
-                      counterStyle: TextStyle(color: _kWhite30),
+                      contentPadding: const EdgeInsets.all(16),
+                      counterStyle: const TextStyle(color: _kWhite30),
                     ),
                     onSubmitted: (_) => _submitGoal(),
                   ),
                 ),
+                const SizedBox(height: 24),
+
+                // Recent goals dropdown
+                if (_recentGoals.isNotEmpty) ...[
+                  Text(
+                    'Or select from history'.tr(),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: _kWhite60,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _kSurface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: _kWhite12),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        dropdownColor: _kSurface,
+                        isExpanded: true,
+                        icon: const Icon(Icons.keyboard_arrow_down,
+                            color: _kWhite),
+                        hint: Text(
+                          'Recent goals'.tr(),
+                          style:
+                              const TextStyle(color: _kWhite60, fontSize: 16),
+                        ),
+                        value: null,
+                        items: _recentGoals.map((Goal goal) {
+                          return DropdownMenuItem<String>(
+                            value: goal.text,
+                            child: Text(
+                              goal.text, // Database content usually doesn't get .tr()
+                              style: const TextStyle(
+                                color: _kWhite,
+                                fontSize: 16,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (String? newText) {
+                          if (newText != null) {
+                            _goalController.text = newText;
+                            _goalController.selection =
+                                TextSelection.fromPosition(TextPosition(
+                                    offset: _goalController.text.length));
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 32),
 
                 // Submit button
@@ -179,9 +263,9 @@ class _GoalMiddlewareScreenState extends State<GoalMiddlewareScreen> {
                             color: _kWhite,
                           ),
                         )
-                      : const Text(
-                          'Set Goal',
-                          style: TextStyle(
+                      : Text(
+                          'Set Goal'.tr(),
+                          style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w600,
                           ),
@@ -192,9 +276,9 @@ class _GoalMiddlewareScreenState extends State<GoalMiddlewareScreen> {
                 // Skip button
                 TextButton(
                   onPressed: _isLoading ? null : _skipGoal,
-                  child: const Text(
-                    'Skip for now',
-                    style: TextStyle(
+                  child: Text(
+                    'Skip for now'.tr(),
+                    style: const TextStyle(
                       color: _kWhite60,
                       fontSize: 16,
                     ),

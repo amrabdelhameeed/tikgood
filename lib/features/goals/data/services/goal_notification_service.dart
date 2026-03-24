@@ -41,11 +41,12 @@ class GoalNotificationService {
       channelDescription: _channelDesc,
       importance: Importance.low,
       ongoing: true, // Makes the notification persistent
-      autoCancel: true, // Cancels when user taps on it
+      autoCancel: false, // Cancels when user taps on it
       playSound: false,
+      category: AndroidNotificationCategory.service,
       enableVibration: false,
       showWhen: false, // Don't show timestamp
-      icon: 'mipmap/launcher_icon', // Use notification icon from res folder
+      icon: 'ic_notification', // Use notification icon from res folder
     );
 
     // Truncate long goals for notification display
