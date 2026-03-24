@@ -217,7 +217,8 @@ class _SettingsPageState extends State<SettingsPage>
               ),
               _buildDivider(),
               _buildHelpLink(
-                  url: _notionApiKeyVideoUrl, title: _notionApiKeyVideoTitle),
+                  url: _notionApiKeyVideoUrl,
+                  title: _notionApiKeyVideoTitle.tr()),
               _buildDivider(),
               _buildPageFetchRow(),
             ],
@@ -240,7 +241,7 @@ class _SettingsPageState extends State<SettingsPage>
               _buildDivider(),
               _buildHelpLink(
                   url: _cloudinaryUploadPresetVideoUrl,
-                  title: _cloudinaryUploadPresetVideoTitle),
+                  title: _cloudinaryUploadPresetVideoTitle.tr()),
             ],
           ),
           _buildSection(
@@ -265,15 +266,15 @@ class _SettingsPageState extends State<SettingsPage>
             ],
           ),
           _buildSection(
-            label: 'Goal Reminder',
-            subtitle: 'Set a goal when you open the app',
+            label: 'settings_section_goals'.tr(),
+            subtitle: 'settings_goals_subtitle'.tr(),
             icon: Icons.flag_rounded,
             iconColor: _kCyan,
             children: [
               _buildGoalReminderRow(),
               _buildDivider(),
               _buildNavRow(
-                label: 'View all goals',
+                label: 'settings_view_all_goals'.tr(),
                 onTap: () => context.push('/goals'),
               ),
             ],
@@ -291,7 +292,7 @@ class _SettingsPageState extends State<SettingsPage>
             ],
           ),
           const SizedBox(height: 32),
-          // _buildFooter(),
+          _buildFooter(),
         ],
       ),
     );
@@ -306,12 +307,10 @@ class _SettingsPageState extends State<SettingsPage>
       backgroundColor: Colors.black,
       elevation: 0,
       centerTitle: true,
-      title: const Text('Settings',
-          style: TextStyle(
-              fontSize: 17, fontWeight: FontWeight.w700, letterSpacing: -0.5)),
+      title: _buildAppBarTitle(),
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),
-        child: Container(color: Color(0xFF2A2A2A), height: 0.5),
+        child: Container(color: const Color(0xFF2A2A2A), height: 0.5),
       ),
     );
   }
@@ -320,46 +319,46 @@ class _SettingsPageState extends State<SettingsPage>
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Text(
-          'Settings',
-          style: TextStyle(
+        Text(
+          'settings_title'.tr(),
+          style: const TextStyle(
             color: _kWhite,
             fontSize: 17,
             fontWeight: FontWeight.w700,
             letterSpacing: -0.3,
           ),
         ),
-        const SizedBox(width: 8),
+        // const SizedBox(width: 8),
         // Auto-saved pill indicator
-        AnimatedBuilder(
-          animation: _saveIndicatorOpacity,
-          builder: (_, __) => Opacity(
-            opacity: _saveIndicatorOpacity.value,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: _kCyan.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: _kCyan.withOpacity(0.4), width: 0.8),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.check_rounded, color: _kCyan, size: 11),
-                  SizedBox(width: 3),
-                  Text(
-                    'Saved',
-                    style: TextStyle(
-                      color: _kCyan,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
+        // AnimatedBuilder(
+        //   animation: _saveIndicatorOpacity,
+        //   builder: (_, __) => Opacity(
+        //     opacity: _saveIndicatorOpacity.value,
+        //     child: Container(
+        //       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        //       decoration: BoxDecoration(
+        //         color: _kCyan.withOpacity(0.15),
+        //         borderRadius: BorderRadius.circular(20),
+        //         border: Border.all(color: _kCyan.withOpacity(0.4), width: 0.8),
+        //       ),
+        //       child: Row(
+        //         mainAxisSize: MainAxisSize.min,
+        //         children: [
+        //           const Icon(Icons.check_rounded, color: _kCyan, size: 11),
+        //           const SizedBox(width: 3),
+        //           Text(
+        //             'settings_saved_label'.tr(),
+        //             style: const TextStyle(
+        //               color: _kCyan,
+        //               fontSize: 11,
+        //               fontWeight: FontWeight.w600,
+        //             ),
+        //           ),
+        //         ],
+        //       ),
+        //     ),
+        //   ),
+        // ),
       ],
     );
   }
@@ -480,7 +479,7 @@ class _SettingsPageState extends State<SettingsPage>
                 fontFamily: 'monospace',
               ),
               decoration: InputDecoration(
-                hintText: hint ?? 'Required',
+                hintText: hint ?? 'settings_required_hint'.tr(),
                 hintStyle: const TextStyle(color: _kWhite12, fontSize: 13),
                 border: InputBorder.none,
                 suffixIcon: suffix,
@@ -506,9 +505,9 @@ class _SettingsPageState extends State<SettingsPage>
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
         children: [
-          const Text(
-            'Page',
-            style: TextStyle(
+          Text(
+            'settings_page_label'.tr(),
+            style: const TextStyle(
               color: _kWhite,
               fontSize: 14,
               fontWeight: FontWeight.w500,
@@ -526,7 +525,9 @@ class _SettingsPageState extends State<SettingsPage>
             SizedBox(
               width: 180,
               child: Text(
-                hasSelected ? _dbIdController.text : 'None fetched',
+                hasSelected
+                    ? _dbIdController.text
+                    : 'settings_none_fetched'.tr(),
                 style: TextStyle(
                   color: hasSelected ? _kWhite60 : _kWhite30,
                   fontSize: 13,
@@ -606,6 +607,7 @@ class _SettingsPageState extends State<SettingsPage>
       ),
     );
   }
+
   // ─────────────────────────────────────────────────────────────────────────
   //  INTERCEPT ROW
   // ─────────────────────────────────────────────────────────────────────────
@@ -630,9 +632,9 @@ class _SettingsPageState extends State<SettingsPage>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Intercept TikTok',
-                  style: TextStyle(
+                Text(
+                  'settings_intercept_title'.tr(),
+                  style: const TextStyle(
                     color: _kWhite,
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
@@ -641,8 +643,8 @@ class _SettingsPageState extends State<SettingsPage>
                 const SizedBox(height: 2),
                 Text(
                   _interceptEnabled
-                      ? 'Active — opens TikGood instead'
-                      : 'Disabled',
+                      ? 'settings_intercept_active'.tr()
+                      : 'settings_disabled_label'.tr(),
                   style: TextStyle(
                     color:
                         _interceptEnabled ? _kCyan.withOpacity(0.8) : _kWhite30,
@@ -684,9 +686,9 @@ class _SettingsPageState extends State<SettingsPage>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Enable Goal Reminder',
-                  style: TextStyle(
+                Text(
+                  'settings_goal_reminder_title'.tr(),
+                  style: const TextStyle(
                     color: _kWhite,
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
@@ -695,8 +697,8 @@ class _SettingsPageState extends State<SettingsPage>
                 const SizedBox(height: 2),
                 Text(
                   _goalReminderEnabled
-                      ? 'Shows goal screen on app startup'
-                      : 'Disabled',
+                      ? 'settings_goal_reminder_active'.tr()
+                      : 'settings_disabled_label'.tr(),
                   style: TextStyle(
                     color: _goalReminderEnabled
                         ? _kCyan.withOpacity(0.8)
@@ -857,9 +859,9 @@ class _SettingsPageState extends State<SettingsPage>
           ],
         ),
         const SizedBox(height: 6),
-        const Text(
-          'Version 1.0.4  ·  Changes save automatically',
-          style: TextStyle(color: _kWhite30, fontSize: 11),
+        Text(
+          '${'settings_version_label'.tr()} 1.0.4  ·  ${'settings_auto_save_info'.tr()}',
+          style: const TextStyle(color: _kWhite30, fontSize: 11),
         ),
       ],
     );
@@ -873,7 +875,7 @@ class _SettingsPageState extends State<SettingsPage>
           .fetchPages(_apiKeyController.text.trim());
       setState(() => _availableDatabases = dbs);
     } catch (_) {
-      _snack('Failed to fetch pages');
+      _snack('settings_fetch_error'.tr());
     } finally {
       setState(() => _isFetching = false);
     }
@@ -890,7 +892,6 @@ class _SettingsPageState extends State<SettingsPage>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg),
-        // backgroundColor: _kSurface2,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
