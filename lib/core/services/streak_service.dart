@@ -129,6 +129,7 @@ class StreakService {
       importance: Importance.high,
       priority: Priority.high,
       ticker: 'Study reminder',
+      icon: 'ic_notification',
     );
 
     // Calculate the next occurrence of the reminder time
