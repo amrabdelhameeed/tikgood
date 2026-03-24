@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -113,7 +114,7 @@ class TikGoodApp extends StatelessWidget {
       designSize: const Size(375, 812),
       builder: (context, child) => ClarityWidget(
         clarityConfig: ClarityConfig(
-          projectId: 's1j4mcipjt',
+          projectId: kDebugMode ? '' : 'w0qwsqaplz',
           logLevel: LogLevel.None,
         ),
         app: MaterialApp.router(
@@ -121,7 +122,7 @@ class TikGoodApp extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           localizationsDelegates: context.localizationDelegates,
           supportedLocales: context.supportedLocales,
-          locale: context.locale,
+          locale: context.locale, // <--- استخدم context.locale بدل Locale('ar')
           theme: ThemeData.dark().copyWith(
             scaffoldBackgroundColor: Colors.black,
             primaryColor: const Color(0xFFFE2C55),
