@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:avatar_plus/avatar_plus.dart';
 import 'package:go_router/go_router.dart';
 import 'package:easy_localization/easy_localization.dart'; // Added for localization
+import 'package:tikgood/core/widgets/tiktok_loading_widget.dart';
 import '../../../home/presentation/bloc/app_cubit.dart';
 import '../../../home/presentation/bloc/app_state.dart';
 import '../../data/models/course.dart';
@@ -264,15 +265,7 @@ class _VideoGridItemState extends State<_VideoGridItem> {
         fit: StackFit.expand,
         children: [
           if (_isLoading)
-            Container(
-              color: const Color(0xFF1A1A1A),
-              child: const Center(
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Color(0xFFFE2C55),
-                ),
-              ),
-            )
+            const TikTokLoadingAnimation()
           else if (_thumbnailPath != null)
             Image.file(File(_thumbnailPath!), fit: BoxFit.cover)
           else
