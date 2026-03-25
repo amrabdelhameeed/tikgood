@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart' as mk;
 import 'package:easy_localization/easy_localization.dart'; // Added for localization
+import 'package:tikgood/core/widgets/tiktok_loading_widget.dart';
 import '../../../../core/database/storage_service.dart';
 import '../../../../core/utils/thumbnail_cache_service.dart';
 import '../../../courses/data/models/video.dart';
@@ -174,14 +175,9 @@ class _VideoThumbnailState extends State<_VideoThumbnail> {
         fit: StackFit.expand,
         children: [
           if (_isLoading)
-            Container(
-              color: const Color(0xFF161722),
-              child: const Center(
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Color(0xFFFE2C55),
-                ),
-              ),
+            const SizedBox(
+              key: ValueKey('loading'),
+              child: TikTokLoadingAnimation(),
             )
           else if (_thumbnailPath != null)
             Image.file(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:tikgood/core/widgets/tiktok_loading_widget.dart';
 import '../../features/home/presentation/bloc/app_cubit.dart';
 import '../../features/home/presentation/bloc/app_state.dart';
 import 'video_item.dart';
@@ -147,19 +148,9 @@ class VideoFeedViewState extends State<VideoFeedView> {
 
               // ── Loading overlay ─────────────────────────────────────────
               if (state.isLoading)
-                Container(
-                  color: Colors.black54,
-                  child: const Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        CircularProgressIndicator(color: Color(0xFFFE2C55)),
-                        SizedBox(height: 16),
-                        Text('Scanning videos...',
-                            style: TextStyle(color: Colors.white)),
-                      ],
-                    ),
-                  ),
+                const SizedBox(
+                  key: ValueKey('loading'),
+                  child: TikTokLoadingAnimation(),
                 ),
             ],
           ),
