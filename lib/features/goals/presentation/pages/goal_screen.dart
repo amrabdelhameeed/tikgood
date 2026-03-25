@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:easy_localization/easy_localization.dart'; // Added
+import 'package:tikgood/core/widgets/tiktok_loading_widget.dart';
 import '../../data/models/goal.dart';
 import '../../data/services/goal_service.dart';
 
@@ -153,7 +154,7 @@ class _GoalScreenState extends State<GoalScreen> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: _kRed))
+          ? const TikTokLoadingAnimation()
           : (_goals.isEmpty && _currentGoal == null)
               ? _buildEmptyState()
               : _buildGoalsList(),

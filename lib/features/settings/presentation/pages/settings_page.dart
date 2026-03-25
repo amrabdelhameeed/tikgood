@@ -4,6 +4,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:tikgood/core/widgets/tiktok_loading_widget.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:tikgood/core/utils/accessibility_intercept_service.dart';
 import '../../../../core/database/storage_service.dart';
@@ -503,57 +504,52 @@ class _SettingsPageState extends State<SettingsPage>
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
-        children: [
-          Text(
-            'settings_page_label'.tr(),
-            style: const TextStyle(
-              color: _kWhite,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-
-          const Spacer(), // pushes dropdown to the right
-
-          if (showDropdown)
-            SizedBox(
-              width: 180, // control distance + prevent centering
-              child: _buildDropdown(),
+      child: _isFetching
+          ? const SizedBox(
+              key: ValueKey('loading'),
+              child: TikTokLoadingAnimation(),
             )
-          else
-            SizedBox(
-              width: 180,
-              child: Text(
-                hasSelected
-                    ? _dbIdController.text
-                    : 'settings_none_fetched'.tr(),
-                style: TextStyle(
-                  color: hasSelected ? _kWhite60 : _kWhite30,
-                  fontSize: 13,
+          : Row(
+              children: [
+                Text(
+                  'settings_page_label'.tr(),
+                  style: const TextStyle(
+                    color: _kWhite,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.right,
-              ),
-            ),
 
-          const SizedBox(width: 12),
+                const Spacer(), // pushes dropdown to the right
 
-          GestureDetector(
-            onTap: _isFetching ? null : _fetchDatabases,
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              child: _isFetching
-                  ? const SizedBox(
-                      key: ValueKey('loading'),
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: _kCyan,
+                if (showDropdown)
+                  SizedBox(
+                    width: 180, // control distance + prevent centering
+                    child: _buildDropdown(),
+                  )
+                else
+                  SizedBox(
+                    width: 180,
+                    child: Text(
+                      hasSelected
+                          ? _dbIdController.text
+                          : 'settings_none_fetched'.tr(),
+                      style: TextStyle(
+                        color: hasSelected ? _kWhite60 : _kWhite30,
+                        fontSize: 13,
                       ),
-                    )
-                  : Container(
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.right,
+                    ),
+                  ),
+
+                const SizedBox(width: 8),
+
+                GestureDetector(
+                  onTap: _isFetching ? null : _fetchDatabases,
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    child: Container(
                       key: const ValueKey('refresh'),
                       padding: const EdgeInsets.all(5),
                       decoration: BoxDecoration(
@@ -566,10 +562,10 @@ class _SettingsPageState extends State<SettingsPage>
                         size: 16,
                       ),
                     ),
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -860,7 +856,7 @@ class _SettingsPageState extends State<SettingsPage>
         // ),
         // const SizedBox(height: 6),
         Text(
-          '${'settings_version_label'.tr()} 0.0.1}',
+          '${'settings_version_label'.tr()} 0.0.1',
           style: const TextStyle(color: _kWhite30, fontSize: 11),
         ),
       ],

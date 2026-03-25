@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:easy_localization/easy_localization.dart'; // Ensure this is imported
+import 'package:tikgood/core/widgets/tiktok_loading_widget.dart';
 import '../../data/models/goal.dart';
 import '../../data/services/goal_service.dart';
 import '../../data/services/goal_notification_service.dart';
@@ -255,12 +256,8 @@ class _GoalMiddlewareScreenState extends State<GoalMiddlewareScreen> {
                   ),
                   child: _isLoading
                       ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: _kWhite,
-                          ),
+                          key: ValueKey('loading'),
+                          child: TikTokLoadingAnimation(),
                         )
                       : Text(
                           'Set Goal'.tr(),

@@ -8,6 +8,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:media_kit/media_kit.dart';
 import 'package:tikgood/core/utils/thumbnail_cache_service.dart';
+import 'package:tikgood/core/widgets/tiktok_loading_widget.dart';
 import '../../../courses/data/models/video.dart';
 import '../../data/models/note.dart';
 import '../../../courses/data/models/course.dart';
@@ -216,8 +217,7 @@ class _NotesPageState extends State<NotesPage> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) =>
-          const Center(child: CircularProgressIndicator(color: _accent)),
+      builder: (_) => const Center(child: TikTokLoadingAnimation()),
     );
     try {
       final pdf =
@@ -560,12 +560,12 @@ class _VideoNotesCard extends StatelessWidget {
                   Container(
                     width: 52,
                     height: 52,
-                    decoration: BoxDecoration(
-                      color: Colors.black,
-                      borderRadius: BorderRadius.circular(8),
-                      border:
-                          Border.all(color: _accent.withOpacity(0.3), width: 1),
-                    ),
+                    // decoration: BoxDecoration(
+                    //   color: Colors.black,
+                    //   borderRadius: BorderRadius.circular(8),
+                    //   border:
+                    //       Border.all(color: _accent.withOpacity(0.3), width: 1),
+                    // ),
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
