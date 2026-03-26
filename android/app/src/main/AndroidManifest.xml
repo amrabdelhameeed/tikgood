@@ -13,7 +13,9 @@
 
     <!-- Older Android versions -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-
+    <!-- 🚫 DISABLE ADVERTISING ID - Declare we don't use it -->
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID"
+        tools:node="remove"/>
     <queries>
         <intent>
             <action android:name="android.intent.action.VIEW"/>

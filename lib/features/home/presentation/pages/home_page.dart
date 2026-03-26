@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:upgrader/upgrader.dart';
 import '../../../../widgets/video_player/video_feed_view.dart';
 import '../../../../widgets/course_content_drawer.dart';
 import '../../../../core/database/storage_service.dart';
 import '../bloc/app_cubit.dart';
 import '../bloc/app_state.dart';
 
-import 'dart:io';
 import 'package:device_info_plus/device_info_plus.dart';
 
 class HomePage extends StatefulWidget {
@@ -91,31 +91,41 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: Colors.black,
-      extendBodyBehindAppBar: true,
-      drawer: BlocBuilder<AppCubit, AppState>(
-        builder: (context, state) {
-          String? currentVideoId;
-          final lastViewedVideoId =
-              context.read<StorageService>().getLastViewedVideoId();
-
-          return CourseContentDrawer(
-            videos: state.videoFeed,
-            courses: state.courses,
-            currentVideoId: currentVideoId,
-            lastViewedVideoId: lastViewedVideoId,
-            onVideoSelected: (index) {
-              Navigator.pop(context);
-              _feedKey.currentState?.animateToVideo(index);
-            },
-          );
-        },
+    return UpgradeAlert(
+      barrierDismissible: false,
+      showIgnore: false,
+      showLater: true,
+      showReleaseNotes: true,
+      upgrader: Upgrader(
+        languageCode: Locale('en').languageCode,
+        durationUntilAlertAgain: const Duration(days: 1),
       ),
-      body: VideoFeedView(
-        key: _feedKey,
-        scaffoldKey: _scaffoldKey,
+      child: Scaffold(
+        key: _scaffoldKey,
+        backgroundColor: Colors.black,
+        extendBodyBehindAppBar: true,
+        drawer: BlocBuilder<AppCubit, AppState>(
+          builder: (context, state) {
+            String? currentVideoId;
+            final lastViewedVideoId =
+                context.read<StorageService>().getLastViewedVideoId();
+
+            return CourseContentDrawer(
+              videos: state.videoFeed,
+              courses: state.courses,
+              currentVideoId: currentVideoId,
+              lastViewedVideoId: lastViewedVideoId,
+              onVideoSelected: (index) {
+                Navigator.pop(context);
+                _feedKey.currentState?.animateToVideo(index);
+              },
+            );
+          },
+        ),
+        body: VideoFeedView(
+          key: _feedKey,
+          scaffoldKey: _scaffoldKey,
+        ),
       ),
     );
   }
