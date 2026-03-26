@@ -1204,6 +1204,10 @@
   "settings_streak_nav": "Streak & Daily Reminder",
   "settings_section_profile": "PROFILE",
   "settings_liked_videos": "Liked Videos",
+  "settings_section_open_source": "المصدر المفتوح",
+  "settings_open_source_subtitle": "تحقق من مستودع GitHub الخاص بنا",
+  "settings_open_source_title": "عرض الكود المصدري",
+  "settings_open_source_description": "اكتشف المزيد من الميزات والمساهمة",
   "streak_title": "Streak & Reminder",
   "streak_day_singular": "day streak",
   "streak_day_plural": "day streak",
@@ -1284,5 +1288,11 @@
   "clear_all": "مسح الكل",
   "goals_empty_title": "لا توجد أهداف بعد",
   "goals_empty_subtitle": "لم تقم بتعيين أي أهداف بعد. ابدأ الآن!",
-  "goals_history_label": "السجل"
+  "goals_history_label": "السجل",
+  "no_courses_followed": "لا توجد كورسات مضافة",
+  "no_courses_subtitle": "أضف كورسات لتراها هنا",
+  "storage_access_title": "صلاحية الوصول للتخزين",
+  "storage_access_message": "عشان نوفرلك تجربة تعليمية مميزة، محتاجين الصلاحيات دي:\n\n• وصول للفيديوهات: عشان نقدر نعرض فيديوهات الكورسات بتاعتك بأسلوب تيك توك من المجلدات اللي بتختارها.\n\n• وصول للصور: عشان تقدر تختار وترفق صور أو لقطات شاشة (Screenshots) للملاحظات بتاعتك.\n\n• إدارة الملفات: في الإصدارات القديمة، بنحتاج صلاحية التخزين العامة عشان ننظم مكتبة الكورسات والمجلدات الفرعية.\n\nاحنا بنوصل بس للمجلدات اللي انت بتحددها بنفسك، وباقي ملفاتك الخاصة هتفضل بعيدة تماماً عن التطبيق.",
+  "permission_denied_message": "التطبيق مش هيقدر يعرض الفيديوهات من غير صلاحية التخزين/الفيديو.",
+  "allow": "سماح"
 }
