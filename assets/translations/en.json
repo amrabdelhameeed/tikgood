@@ -1093,6 +1093,10 @@
   "settings_streak_nav": "Streak & Daily Reminder",
   "settings_section_profile": "PROFILE",
   "settings_liked_videos": "Liked Videos",
+  "settings_section_open_source": "OPEN SOURCE",
+  "settings_open_source_subtitle": "Check out our GitHub repository",
+  "settings_open_source_title": "View Source Code",
+  "settings_open_source_description": "Find more features and contribute",
   "streak_title": "Streak & Reminder",
   "streak_day_singular": "day streak",
   "streak_day_plural": "day streak",
@@ -1173,5 +1177,11 @@
   "clear_all": "Clear All",
   "goals_empty_title": "No Goals Yet",
   "goals_empty_subtitle": "You haven’t set any goals yet. Start now!",
-  "goals_history_label": "History"
+  "goals_history_label": "History",
+  "no_courses_followed": "No Courses Added",
+  "no_courses_subtitle": "Add courses to see them here",
+  "storage_access_title": "Storage Access Required",
+  "storage_access_message": "To provide a seamless learning experience, we need the following permissions:\n\n• Video Access: To scan and play your course videos in a TikTok-style feed from the folders you choose.\n\n• Photo & Media Access: To allow you to pick and attach images or screenshots to your study notes.\n\n• File Management: On older devices, we require General Storage access to organize your course library and subfolders.\n\nWe only access folders you explicitly select. Your private files remain strictly inaccessible.",
+  "permission_denied_message": "Cannot display course videos without storage/video permission.",
+  "allow": "Allow"
 }
