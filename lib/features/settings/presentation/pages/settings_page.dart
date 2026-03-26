@@ -68,6 +68,12 @@ class _SettingsPageState extends State<SettingsPage>
   static const String _cloudinaryUploadPresetVideoTitle =
       'How to create upload preset and get the cloud name';
 
+  // Set to false when uploading to Play Store
+  static const bool showFocusSection = false;
+
+  static const String _githubRepoUrl =
+      'https://github.com/amrabdelhameeed/tikgood';
+
   @override
   void initState() {
     super.initState();
@@ -245,15 +251,16 @@ class _SettingsPageState extends State<SettingsPage>
                   title: _cloudinaryUploadPresetVideoTitle.tr()),
             ],
           ),
-          _buildSection(
-            label: 'settings_section_focus'.tr(),
-            subtitle: 'settings_focus_subtitle'.tr(),
-            icon: Icons.block_rounded,
-            iconColor: _kRed,
-            children: [
-              _buildInterceptRow(),
-            ],
-          ),
+          if (showFocusSection)
+            _buildSection(
+              label: 'settings_section_focus'.tr(),
+              subtitle: 'settings_focus_subtitle'.tr(),
+              icon: Icons.block_rounded,
+              iconColor: _kRed,
+              children: [
+                _buildInterceptRow(),
+              ],
+            ),
           _buildSection(
             label: 'settings_section_streak'.tr(),
             subtitle: 'settings_streak_subtitle'.tr(),
@@ -290,6 +297,15 @@ class _SettingsPageState extends State<SettingsPage>
                 label: 'settings_liked_videos'.tr(),
                 onTap: () => context.push('/liked-videos'),
               ),
+            ],
+          ),
+          _buildSection(
+            label: 'settings_section_open_source'.tr(),
+            subtitle: 'settings_open_source_subtitle'.tr(),
+            icon: Icons.code_rounded,
+            iconColor: _kCyan,
+            children: [
+              _buildOpenSourceRow(),
             ],
           ),
           const SizedBox(height: 32),
@@ -752,6 +768,58 @@ class _SettingsPageState extends State<SettingsPage>
             Text(label, style: const TextStyle(color: _kWhite, fontSize: 14)),
             const Spacer(),
             const Icon(Icons.chevron_right_rounded, color: _kWhite30, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  //  OPEN SOURCE ROW
+  // ─────────────────────────────────────────────────────────────────────────
+
+  Widget _buildOpenSourceRow() {
+    return InkWell(
+      onTap: () => _launchUrl(_githubRepoUrl),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            // GitHub icon badge
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: _kCyan.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.code_rounded, color: _kCyan, size: 17),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'settings_open_source_title'.tr(),
+                    style: const TextStyle(
+                      color: _kWhite,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'settings_open_source_description'.tr(),
+                    style: const TextStyle(
+                      color: _kWhite30,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.open_in_new_rounded, color: _kWhite30, size: 18),
           ],
         ),
       ),
