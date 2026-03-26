@@ -94,8 +94,9 @@ Connect your Notion workspace to automatically mirror your notes:
 | 🎥 **YouTube Courses** | Import YouTube playlist URLs into the feed | 
 | 🤖 **AI Note Summarization** | Auto-generate summaries for each video | 
 | 🌍 **Multi-language Support** | App localization for global users | 
-| 🌙 **Dark Mode** | Support for system and manual dark themes | 
+| 🌙 **Light Mode** | Support for system and manual light themes | 
 | ⚡ **TikTok UI Elements** | More interactive elements like the native TikTok interface | 
+| 📱 **Home Screen Widget** | Add widget support to view current goal from home screen | 
  
 --- 
  
