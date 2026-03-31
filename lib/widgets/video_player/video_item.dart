@@ -291,6 +291,8 @@ class VideoItemState extends State<VideoItem>
       if (!mounted || _disposed) return;
       setState(() => _isPlaying = playing);
       playing ? _diskController.repeat() : _diskController.stop();
+      // Sync the PIP button icon with the actual playing state
+      AndroidPIP().setIsPlaying(playing);
     });
 
     _positionSub = _player.stream.position.listen((position) {
