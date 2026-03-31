@@ -25,8 +25,7 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_bloc: ^8.1.6
-  flutter_local_notifications: 18.0.1
-  timezone: ^0.9.4
+  flutter_local_notifications: 20.1.0
   flutter_native_splash: ^2.4.7
   flutter_screenutil: ^5.9.0
   flutter_secure_storage: ^10.0.0
@@ -51,7 +50,7 @@ dependencies:
   send_to_background: ^0.0.5
   sensors_plus: ^7.0.0
   shared_preferences: ^2.2.2
-  # timezone: ^0.10.0
+  timezone: ^0.10.0
   upgrader: ^12.5.0
   url_launcher: ^6.3.1
   uuid: ^4.5.1
