@@ -318,6 +318,13 @@ class _SettingsPageState extends State<SettingsPage>
               _buildSuggestRow(),
             ],
           ),
+          _buildSection(
+            label: 'settings_section_upcoming'.tr(),
+            subtitle: 'settings_upcoming_subtitle'.tr(),
+            icon: Icons.auto_awesome_rounded,
+            iconColor: _kRed,
+            children: _buildUpcomingFeatures(),
+          ),
           const SizedBox(height: 32),
           _buildFooter(),
         ],
@@ -849,7 +856,8 @@ class _SettingsPageState extends State<SettingsPage>
                 color: _kCyan.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.lightbulb_outline_rounded, color: _kCyan, size: 17),
+              child: const Icon(Icons.lightbulb_outline_rounded,
+                  color: _kCyan, size: 17),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -932,11 +940,13 @@ class _SettingsPageState extends State<SettingsPage>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('settings_suggest_cancel'.tr(), style: const TextStyle(color: _kWhite30)),
+            child: Text('settings_suggest_cancel'.tr(),
+                style: const TextStyle(color: _kWhite30)),
           ),
           TextButton(
             onPressed: () async {
-              if (titleController.text.isNotEmpty && descController.text.isNotEmpty) {
+              if (titleController.text.isNotEmpty &&
+                  descController.text.isNotEmpty) {
                 await FirebaseFirestore.instance.collection('suggestions').add({
                   'title': titleController.text.trim(),
                   'description': descController.text.trim(),
@@ -946,11 +956,105 @@ class _SettingsPageState extends State<SettingsPage>
                 _snack('settings_suggest_success'.tr());
               }
             },
-            child: Text('settings_suggest_submit'.tr(), style: const TextStyle(color: _kCyan)),
+            child: Text('settings_suggest_submit'.tr(),
+                style: const TextStyle(color: _kCyan)),
           ),
         ],
       ),
     );
+  }
+
+  List<Widget> _buildUpcomingFeatures() {
+    final features = [
+      {
+        'icon': '🎥',
+        'title': 'upcoming_youtube_courses'.tr(),
+        'desc': 'upcoming_youtube_courses_desc'.tr()
+      },
+      {
+        'icon': '🖥️',
+        'title': 'upcoming_desktop'.tr(),
+        'desc': 'upcoming_desktop_desc'.tr()
+      },
+      {
+        'icon': '🔐',
+        'title': 'upcoming_saf'.tr(),
+        'desc': 'upcoming_saf_desc'.tr()
+      },
+      {
+        'icon': '🎬',
+        'title': 'upcoming_entertainment'.tr(),
+        'desc': 'upcoming_entertainment_desc'.tr()
+      },
+      {
+        'icon': '🤖',
+        'title': 'upcoming_ai'.tr(),
+        'desc': 'upcoming_ai_desc'.tr()
+      },
+      {
+        'icon': '🌙',
+        'title': 'upcoming_light_mode'.tr(),
+        'desc': 'upcoming_light_mode_desc'.tr()
+      },
+      {
+        'icon': '📱',
+        'title': 'upcoming_widget'.tr(),
+        'desc': 'upcoming_widget_desc'.tr()
+      },
+    ];
+
+    return features.asMap().entries.map((entry) {
+      final index = entry.key;
+      final feature = entry.value;
+      return Column(
+        children: [
+          if (index > 0) _buildDivider(),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                Text(feature['icon']!, style: const TextStyle(fontSize: 18)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        feature['title']!,
+                        style: const TextStyle(
+                            color: _kWhite,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        feature['desc']!,
+                        style: const TextStyle(color: _kWhite30, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: _kRed.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    'upcoming_soon'.tr(),
+                    style: const TextStyle(
+                        color: _kRed,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }).toList();
   }
 
   // ─────────────────────────────────────────────────────────────────────────
