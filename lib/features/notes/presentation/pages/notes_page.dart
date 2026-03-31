@@ -135,7 +135,7 @@ class _NotesPageState extends State<NotesPage> {
           final courses = state.courses;
 
           if (courses.isEmpty) {
-            return _emptyState(Icons.note_add_outlined, 'No courses added yet');
+            return _emptyState(Icons.note_add_outlined, 'No notes added yet');
           }
 
           final courseData = courses
@@ -340,15 +340,15 @@ class _NotesPageState extends State<NotesPage> {
             Stack(
               alignment: Alignment.center,
               children: [
-                Transform.translate(
-                  offset: const Offset(-2, 0),
-                  child: Icon(icon,
-                      size: 64, color: _accentSecondary.withOpacity(0.5)),
-                ),
-                Transform.translate(
-                  offset: const Offset(2, 0),
-                  child: Icon(icon, size: 64, color: _accent.withOpacity(0.5)),
-                ),
+                // Transform.translate(
+                //   offset: const Offset(-2, 0),
+                //   child: Icon(icon,
+                //       size: 64, color: _accentSecondary.withOpacity(0.5)),
+                // ),
+                // Transform.translate(
+                //   offset: const Offset(2, 0),
+                //   child: Icon(icon, size: 64, color: _accent.withOpacity(0.5)),
+                // ),
                 Icon(icon, size: 64, color: _textTertiary),
               ],
             ),
