@@ -1,0 +1,108 @@
+name: Build and Release TikGood APKs
+
+on:
+  push:
+    branches:
+      - "**"
+
+permissions:
+  contents: write
+
+jobs:
+  build_release:
+    if: contains(github.event.head_commit.message, 'build release')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+          cache: "gradle"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.32.2"
+          channel: "stable"
+          cache: true
+
+      # Cache pub packages separately — flutter-action's built-in pub cache
+      # uses a key that includes a hash of pubspec.lock, so it misses often.
+      # This one is more reliable.
+      - name: Cache pub packages
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.pub-cache
+          key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: |
+            pub-${{ runner.os }}-
+
+      # Gradle's own cache (separate from setup-java's wrapper cache)
+      - name: Cache Gradle build cache
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            ~/.android/build-cache
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      # Cache the Android SDK packages that get auto-installed during build
+      # (NDK, CMake, Platform 33 — all downloaded fresh each run otherwise)
+      - name: Cache Android SDK components
+        uses: actions/cache@v5
+        with:
+          path: |
+            /usr/local/lib/android/sdk/ndk
+            /usr/local/lib/android/sdk/cmake
+            /usr/local/lib/android/sdk/platforms
+          key: android-sdk-${{ runner.os }}-ndk27-cmake3221-api33
+          # Static key — only change it when you intentionally upgrade these
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Decode Keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/upload-keystore.jks
+          cat > android/key.properties <<EOF
+          storePassword=${{ secrets.STORE_PASSWORD }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          keyAlias=${{ secrets.KEY_ALIAS }}
+          storeFile=../upload-keystore.jks
+          EOF
+
+      - name: Build APKs
+        run: |
+          for VERSION in 7 8; do
+            flutter build apk --release \
+              --target-platform android-arm64,android-x64 \
+              --split-per-abi \
+              --build-name=${VERSION}.0.0 \
+              --build-number=${VERSION}
+
+            mv build/app/outputs/flutter-apk/app-arm64-v8a-release.apk \
+               build/app/outputs/flutter-apk/tikgood-v${VERSION}-arm64.apk
+               
+            mv build/app/outputs/flutter-apk/app-x86_64-release.apk \
+               build/app/outputs/flutter-apk/tikgood-v${VERSION}-x64.apk
+          done
+
+      - name: Create GitHub Release and Upload APKs
+        uses: ncipollo/release-action@v1
+        with:
+          tag: rel-${{ github.sha }}
+          name: TikGood Release ${{ github.sha }}
+          allowUpdates: true
+          body: |
+            Automated build release from commit: ${{ github.event.head_commit.message }}
+          artifacts: "build/app/outputs/flutter-apk/tikgood-*.apk"
+          token: ${{ github.token }}

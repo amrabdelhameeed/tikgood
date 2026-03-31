@@ -54,15 +54,15 @@ class GoalNotificationService {
         goalText.length > 100 ? '${goalText.substring(0, 97)}...' : goalText;
 
     await _notifications.show(
-      id: _goalNotificationId,
-      title: '🎯 Your Goal',
-      body: displayText,
-      notificationDetails: const NotificationDetails(android: androidDetails),
+      _goalNotificationId,
+      '🎯 Your Goal',
+      displayText,
+      const NotificationDetails(android: androidDetails),
     );
   }
 
   /// Cancel the goal notification (when app goes to background/closes)
   Future<void> cancelGoalNotification() async {
-    await _notifications.cancel(id: _goalNotificationId);
+    await _notifications.cancel(_goalNotificationId);
   }
 }
