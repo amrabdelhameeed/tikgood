@@ -1,0 +1,173 @@
+name: Build and Upload TikGood Release APKs
+
+on:
+  push:
+    branches:
+      - "**"
+
+jobs:
+  build_release:
+    if: contains(github.event.head_commit.message, 'build release')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: "temurin"
+          java-version: "17"
+          cache: "gradle"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.27.0"
+          channel: "stable"
+          cache: true
+
+      - name: Cache Flutter dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.pub-cache
+            .dart_tool
+            build/
+            android/.gradle/
+          key: ${{ runner.os }}-flutter-${{ hashFiles('**/*.gradle*','pubspec.lock') }}
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run Analyzer
+        run: flutter analyze
+        continue-on-error: true
+
+      - name: Decode Keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/upload-keystore.jks
+          cat > android/key.properties <<EOF
+          storePassword=${{ secrets.STORE_PASSWORD }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          keyAlias=${{ secrets.KEY_ALIAS }}
+          storeFile=../upload-keystore.jks
+          EOF
+
+      - name: Build arm64-v8a APK (v7)
+        run: |
+          flutter build apk --release \
+            --target-platform android-arm64 \
+            --split-per-abi \
+            --build-name=7.0.0 \
+            --build-number=7
+
+      - name: Build x86_64 APK (v7)
+        run: |
+          flutter build apk --release \
+            --target-platform android-x64 \
+            --split-per-abi \
+            --build-name=7.0.0 \
+            --build-number=7
+
+      - name: Rename v7 APKs
+        run: |
+          mv build/app/outputs/flutter-apk/app-arm64-v8a-release.apk \
+             build/app/outputs/flutter-apk/tikgood-v7-arm64.apk
+          mv build/app/outputs/flutter-apk/app-x86_64-release.apk \
+             build/app/outputs/flutter-apk/tikgood-v7-x64.apk
+
+      - name: Build arm64-v8a APK (v8)
+        run: |
+          flutter build apk --release \
+            --target-platform android-arm64 \
+            --split-per-abi \
+            --build-name=8.0.0 \
+            --build-number=8
+
+      - name: Build x86_64 APK (v8)
+        run: |
+          flutter build apk --release \
+            --target-platform android-x64 \
+            --split-per-abi \
+            --build-name=8.0.0 \
+            --build-number=8
+
+      - name: Rename v8 APKs
+        run: |
+          mv build/app/outputs/flutter-apk/app-arm64-v8a-release.apk \
+             build/app/outputs/flutter-apk/tikgood-v8-arm64.apk
+          mv build/app/outputs/flutter-apk/app-x86_64-release.apk \
+             build/app/outputs/flutter-apk/tikgood-v8-x64.apk
+
+      - name: Extract Folder ID from commit message
+        id: extract_folder
+        run: |
+          FOLDER_ID=$(echo "${{ github.event.head_commit.message }}" | grep -oP 'FOLDER_ID=\K\S+')
+          echo "folder_id=$FOLDER_ID" >> $GITHUB_OUTPUT
+
+      - name: Write Google credentials to file
+        run: echo '${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}' > credentials.json
+
+      - name: Upload APKs to Google Drive & Send Email
+        env:
+          FOLDER_ID: ${{ steps.extract_folder.outputs.folder_id }}
+          EMAIL_USER: ${{ secrets.EMAIL_USER }}
+          EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
+          EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+        run: |
+          pip install --upgrade google-api-python-client google-auth-httplib2 google-auth-oauthlib
+
+          cat > upload_and_email.py <<'EOF'
+          import os
+          import smtplib
+          from email.mime.text import MIMEText
+          from google.oauth2 import service_account
+          from googleapiclient.discovery import build
+          from googleapiclient.http import MediaFileUpload
+
+          FOLDER_ID = os.environ['FOLDER_ID']
+          SCOPES = ['https://www.googleapis.com/auth/drive.file']
+          credentials = service_account.Credentials.from_service_account_file(
+              'credentials.json', scopes=SCOPES)
+          service = build('drive', 'v3', credentials=credentials)
+
+          ref_name = os.environ.get('GITHUB_REF_NAME', 'unknown')
+          apk_files = [
+              f'build/app/outputs/flutter-apk/tikgood-v7-arm64.apk',
+              f'build/app/outputs/flutter-apk/tikgood-v7-x64.apk',
+              f'build/app/outputs/flutter-apk/tikgood-v8-arm64.apk',
+              f'build/app/outputs/flutter-apk/tikgood-v8-x64.apk',
+          ]
+
+          links = []
+          for apk_path in apk_files:
+              file_name = os.path.basename(apk_path)
+              file_metadata = {'name': file_name, 'parents': [FOLDER_ID]}
+              media = MediaFileUpload(apk_path, mimetype='application/vnd.android.package-archive')
+              uploaded = service.files().create(
+                  body=file_metadata, media_body=media, fields='id,webViewLink').execute()
+              # Make it publicly readable
+              service.permissions().create(
+                  fileId=uploaded['id'],
+                  body={'type': 'anyone', 'role': 'reader'}
+              ).execute()
+              links.append(f"{file_name}: {uploaded['webViewLink']}")
+
+          # Send email
+          body = f"TikGood Release Build\nBranch: {ref_name}\n\nDownload Links:\n\n" + "\n".join(links)
+          msg = MIMEText(body)
+          msg['Subject'] = f'TikGood Release APKs - {ref_name}'
+          msg['From'] = os.environ['EMAIL_USER']
+          msg['To'] = os.environ['EMAIL_RECEIVER']
+
+          with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+              smtp.login(os.environ['EMAIL_USER'], os.environ['EMAIL_PASS'])
+              smtp.send_message(msg)
+
+          print("Done! Links:\n" + "\n".join(links))
+          EOF
+
+          python upload_and_email.py
