@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -306,6 +307,15 @@ class _SettingsPageState extends State<SettingsPage>
             iconColor: _kCyan,
             children: [
               _buildOpenSourceRow(),
+            ],
+          ),
+          _buildSection(
+            label: 'settings_section_suggest'.tr(),
+            subtitle: 'settings_suggest_subtitle'.tr(),
+            icon: Icons.lightbulb_outline_rounded,
+            iconColor: _kCyan,
+            children: [
+              _buildSuggestRow(),
             ],
           ),
           const SizedBox(height: 32),
@@ -785,7 +795,6 @@ class _SettingsPageState extends State<SettingsPage>
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
           children: [
-            // GitHub icon badge
             Container(
               width: 34,
               height: 34,
@@ -822,6 +831,124 @@ class _SettingsPageState extends State<SettingsPage>
             const Icon(Icons.open_in_new_rounded, color: _kWhite30, size: 18),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildSuggestRow() {
+    return InkWell(
+      onTap: () => _showSuggestDialog(),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: _kCyan.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.lightbulb_outline_rounded, color: _kCyan, size: 17),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'settings_suggest_title'.tr(),
+                    style: const TextStyle(
+                      color: _kWhite,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'settings_suggest_description'.tr(),
+                    style: const TextStyle(
+                      color: _kWhite30,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded, color: _kWhite30, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showSuggestDialog() {
+    final titleController = TextEditingController();
+    final descController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: _kSurface,
+        title: Text(
+          'settings_suggest_dialog_title'.tr(),
+          style: const TextStyle(color: _kWhite),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: titleController,
+              style: const TextStyle(color: _kWhite),
+              decoration: InputDecoration(
+                hintText: 'settings_suggest_title_hint'.tr(),
+                hintStyle: const TextStyle(color: _kWhite30),
+                enabledBorder: const UnderlineInputBorder(
+                  borderSide: BorderSide(color: _kBorder),
+                ),
+                focusedBorder: const UnderlineInputBorder(
+                  borderSide: BorderSide(color: _kCyan),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: descController,
+              style: const TextStyle(color: _kWhite),
+              maxLines: 3,
+              decoration: InputDecoration(
+                hintText: 'settings_suggest_desc_hint'.tr(),
+                hintStyle: const TextStyle(color: _kWhite30),
+                enabledBorder: const UnderlineInputBorder(
+                  borderSide: BorderSide(color: _kBorder),
+                ),
+                focusedBorder: const UnderlineInputBorder(
+                  borderSide: BorderSide(color: _kCyan),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('settings_suggest_cancel'.tr(), style: const TextStyle(color: _kWhite30)),
+          ),
+          TextButton(
+            onPressed: () async {
+              if (titleController.text.isNotEmpty && descController.text.isNotEmpty) {
+                await FirebaseFirestore.instance.collection('suggestions').add({
+                  'title': titleController.text.trim(),
+                  'description': descController.text.trim(),
+                  'createdAt': DateTime.now().toIso8601String(),
+                });
+                if (ctx.mounted) Navigator.pop(ctx);
+                _snack('settings_suggest_success'.tr());
+              }
+            },
+            child: Text('settings_suggest_submit'.tr(), style: const TextStyle(color: _kCyan)),
+          ),
+        ],
       ),
     );
   }
