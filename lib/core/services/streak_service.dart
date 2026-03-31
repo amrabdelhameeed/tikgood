@@ -75,7 +75,7 @@ class StreakService {
         AndroidInitializationSettings('@mipmap/launcher_icon');
     const initSettings = InitializationSettings(android: androidSettings);
     await plugin.initialize(
-      settings: initSettings,
+      initSettings,
       onDidReceiveNotificationResponse: _onNotificationTapped,
     );
 
@@ -151,14 +151,16 @@ class StreakService {
     final tzScheduledDate = tz.TZDateTime.from(scheduledDate, tz.local);
 
     await _notifications.zonedSchedule(
-      id: _reminderNotificationId,
-      title: '🔥 Time to Study',
-      body: body,
-      scheduledDate: tzScheduledDate,
+      _reminderNotificationId,
+      '🔥 Time to Study',
+      body,
+      tzScheduledDate,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       matchDateTimeComponents:
           DateTimeComponents.time, // Repeat daily at same time
-      notificationDetails: const NotificationDetails(android: androidDetails),
+      const NotificationDetails(android: androidDetails),
     );
 
     // Persist reminder state
@@ -171,7 +173,7 @@ class StreakService {
   }
 
   Future<void> cancelReminder() async {
-    await _notifications.cancel(id: _reminderNotificationId);
+    await _notifications.cancel(_reminderNotificationId);
     await _storage.saveReminderEnabled(false);
   }
 
