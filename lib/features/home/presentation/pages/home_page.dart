@@ -36,21 +36,20 @@ class _HomePageState extends State<HomePage> {
 
     bool isGranted = false;
 
-    // 1. Check current status based on version
+    // ✅ Correct permission logic
     if (sdkInt >= 33) {
-      final storage = await Permission.storage.isGranted;
-      final videos = await Permission.videos.isGranted;
-      isGranted = storage && videos;
+      isGranted = await Permission.videos.isGranted;
     } else {
       isGranted = await Permission.storage.isGranted;
     }
 
-    // 2. If already granted, stop here.
+    // ✅ Stop if already granted
     if (isGranted) return;
 
-    // 3. If NOT granted, show YOUR dialog first to explain why.
-    // This ensures the user sees your UI before the system pop-up.
-    _showRationaleDialog(sdkInt);
+    // ✅ Show your custom dialog
+    if (mounted) {
+      _showRationaleDialog(sdkInt);
+    }
   }
 
   Future<void> _showRationaleDialog(int sdkInt) async {
@@ -59,33 +58,48 @@ class _HomePageState extends State<HomePage> {
       barrierDismissible: false,
       builder: (context) {
         return AlertDialog(
-          title: Text('storage_access_title'.tr()),
-          content: Text('storage_access_message'.tr()),
+          title: const Text('Storage Access'),
+          content: const Text(
+              'This app needs access to your videos to display your courses.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: Text('cancel'.tr()),
+              child: const Text('Cancel'),
             ),
             ElevatedButton(
               onPressed: () => Navigator.of(context).pop(true),
-              child: Text('allow'.tr()),
+              child: const Text('Allow'),
             ),
           ],
         );
       },
     );
 
-    // 4. If user clicked "Allow" in your dialog, trigger the system prompt
-    if (beginRequest == true) {
-      Map<Permission, PermissionStatus> statuses = await [
-        Permission.storage,
-        if (sdkInt >= 33) Permission.videos,
-      ].request();
+    if (beginRequest != true) return;
 
-      // Check if they denied the system prompt permanently
-      if (statuses.values.any((s) => s.isPermanentlyDenied)) {
-        openAppSettings();
-      }
+    Map<Permission, PermissionStatus> statuses = await [
+      if (sdkInt >= 33) Permission.videos,
+      if (sdkInt < 33) Permission.storage,
+    ].request();
+
+    // ✅ If permanently denied → open settings
+    if (statuses.values.any((s) => s.isPermanentlyDenied)) {
+      await openAppSettings();
+      return;
+    }
+
+    // ✅ Re-check after request to avoid dialog loop
+    bool grantedAfterRequest = false;
+
+    if (sdkInt >= 33) {
+      grantedAfterRequest = await Permission.videos.isGranted;
+    } else {
+      grantedAfterRequest = await Permission.storage.isGranted;
+    }
+
+    if (!grantedAfterRequest && mounted) {
+      // Optional: show again OR handle gracefully
+      debugPrint("Permission still not granted");
     }
   }
 
