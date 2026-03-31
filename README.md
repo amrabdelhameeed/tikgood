@@ -89,9 +89,12 @@ Connect your Notion workspace to automatically mirror your notes:
  
 ## 🚀 Upcoming Features 
  
-| Feature | Status | 
-|---------|--------| 
-| 🎥 **YouTube Courses** | Import YouTube playlist URLs into the feed | 
+| Feature | Status |
+|---------|--------|
+| 🎥 **YouTube Courses** | Import YouTube playlist URLs into the feed as a another kind of added courses |
+| 🪟 **Windows/Mac Support** | Desktop app support for Windows and macOS |
+| 🔐 **Permissionless File Access** | Replace storage/photos permissions with SAF (Storage Access Framework) and native APIs to access video & subtitle files without requiring permissions |
+| 🎬 **Entertainment Folder** | Curated folder showing every N videos from your courses for quick review and casual viewing |
 | 🤖 **AI Note Summarization** | Auto-generate summaries for each video | 
 | 🌍 **Multi-language Support** | App localization for global users | 
 | 🌙 **Light Mode** | Support for system and manual light themes | 
