@@ -68,7 +68,7 @@ class _SpeedChevronState extends State<_SpeedChevron>
     _ctrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
-      value: widget.initialPosition, // ← start at offset BEFORE repeat
+      value: widget.initialPosition,
     );
 
     _opacity = TweenSequence<double>([
@@ -77,7 +77,7 @@ class _SpeedChevronState extends State<_SpeedChevron>
       TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.15), weight: 50),
     ]).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
 
-    _ctrl.repeat(); // ← repeat immediately, already at offset
+    _ctrl.repeat();
   }
 
   @override
@@ -101,9 +101,6 @@ class _SpeedChevronState extends State<_SpeedChevron>
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// _TikTokSpeedBadge  — pinned to bottom of its parent
-// ─────────────────────────────────────────────────────────────────────────────
 class _TikTokSpeedBadge extends StatelessWidget {
   const _TikTokSpeedBadge();
 
@@ -112,16 +109,9 @@ class _TikTokSpeedBadge extends StatelessWidget {
     return Align(
       alignment: Alignment.bottomCenter,
       child: Padding(
-        padding:
-            const EdgeInsets.only(bottom: 0), // adjust to sit above nav bar
+        padding: const EdgeInsets.only(bottom: 0),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          // decoration: BoxDecoration(
-          //   color: Colors.black.withOpacity(0.5),
-          //   borderRadius: BorderRadius.circular(6),
-          //   border:
-          //       Border.all(color: Colors.white.withOpacity(0.12), width: 0.5),
-          // ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -188,8 +178,6 @@ class _StableVideoState extends State<_StableVideo> {
   @override
   void initState() {
     super.initState();
-    // Cache the widget once — rebuilding mk.Video with the same key causes
-    // a ValueNotifier<VideoViewParameters> disposed crash inside media_kit.
     _cached = mk.Video(
       key: _videoKey,
       wakelock: true,
@@ -341,23 +329,26 @@ class VideoItemState extends State<VideoItem>
 
     if (!widget.isActive) _player.pause();
 
-    // ── PIP: do NOT call _syncPipArming() here.
-    // It will be triggered reactively in didUpdateWidget when isActive becomes
-    // true, and in the BlocListener when the nav index changes.
-    // Calling it unconditionally in initState is what caused PIP to arm on
-    // every tab's VideoItem at startup.
-
     WidgetsBinding.instance.addObserver(this);
+
+    // ── Arm PIP immediately if this video starts as the active one on home tab.
+    // Uses addPostFrameCallback because context.read is not safe in initState
+    // before the first frame.
+    if (widget.isActive) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _disposed) return;
+        final isOnHome = context.read<AppCubit>().state.currentNavIndex == 0;
+        _syncPipArming(isOnHome: isOnHome);
+      });
+    }
   }
 
   // ── App lifecycle (foreground ↔ background) ───────────────────────────────
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Guard 1: only the currently-playing video handles this.
     if (!widget.isActive) return;
 
-    // Guard 2: only arm PIP when the user is on the Home tab (index 0).
     final appCubit = context.read<AppCubit>();
     final isOnHome = appCubit.state.currentNavIndex == 0;
 
@@ -378,8 +369,6 @@ class VideoItemState extends State<VideoItem>
 
   // ── PIP arming/disarming ──────────────────────────────────────────────────
 
-  /// Arms PIP if [isOnHome] is true, clears it otherwise.
-  /// Safe to call multiple times — the OS calls are idempotent.
   Future<void> _syncPipArming({required bool isOnHome}) async {
     try {
       final isPipAvailable = await AndroidPIP.isPipAvailable;
@@ -397,7 +386,6 @@ class VideoItemState extends State<VideoItem>
     }
   }
 
-  /// Called by PipWidget whenever the user taps controls inside the PIP window.
   void _onPipAction(PipAction action) {
     switch (action) {
       case PipAction.play:
@@ -513,13 +501,10 @@ class VideoItemState extends State<VideoItem>
     if (widget.isActive != oldWidget.isActive) {
       widget.isActive ? _player.play() : _player.pause();
 
-      // When this video becomes the active one, sync PIP arming immediately.
-      // When it becomes inactive, disarm PIP so another video can take over.
       if (widget.isActive) {
         final isOnHome = context.read<AppCubit>().state.currentNavIndex == 0;
         _syncPipArming(isOnHome: isOnHome);
       } else {
-        // Disarm — this video is no longer visible.
         _syncPipArming(isOnHome: false);
       }
     }
@@ -591,7 +576,6 @@ class VideoItemState extends State<VideoItem>
     _isLandscapeMode = context.watch<AppCubit>().state.isFullscreen;
     final screenH = MediaQuery.of(context).size.height;
     final screenW = MediaQuery.of(context).size.width;
-    final topPad = MediaQuery.of(context).padding.top;
 
     final containerH = screenH;
     final renderedH = _renderedVideoHeight(screenW, containerH);
@@ -601,8 +585,6 @@ class VideoItemState extends State<VideoItem>
         ? 0.0
         : (barH - subtitleOffset).clamp(0.0, double.infinity);
 
-    final double videoHeight = _isNotesOpen ? (screenH * 0.35) : screenH;
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _stableKey.currentState?.setSubtitlePadding(
@@ -611,9 +593,61 @@ class VideoItemState extends State<VideoItem>
       }
     });
 
+    // ── BlocListener re-syncs PIP arming whenever the nav tab changes ────────
+    return BlocListener<AppCubit, AppState>(
+      listenWhen: (prev, curr) =>
+          widget.isActive && prev.currentNavIndex != curr.currentNavIndex,
+      listener: (context, state) {
+        final isOnHome = state.currentNavIndex == 0;
+        _syncPipArming(isOnHome: isOnHome);
+      },
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // ── LAYER 1: Bare video only — this is what PIP window shows ────────
+          // PipWidget wraps ONLY the raw video, so the PIP window never
+          // contains any UI overlays (nav bar, action buttons, gradients, etc.)
+          PipWidget(
+            pipLayout: PipActionsLayout.media_only_pause,
+            onPipAction: _onPipAction,
+            pipChild: _buildBareVideo(),
+            child: ColoredBox(
+              color: Colors.black,
+              child: _StableVideo(
+                key: _stableKey,
+                controller: _controller,
+              ),
+            ),
+          ),
+
+          // ── LAYER 2: All UI overlays — hidden completely during PIP ─────────
+          if (!_isInPipMode) _buildUIOverlays(),
+        ],
+      ),
+    );
+  }
+
+  // ── Bare video widget used as both the PIP child and the base layer ───────
+  Widget _buildBareVideo() {
+    return ColoredBox(
+      color: Colors.black,
+      child: _StableVideo(
+        controller: _controller,
+      ),
+    );
+  }
+
+  // ── All gestures + UI overlays (gradients, buttons, progress, etc.) ───────
+  // Rendered on top of the bare video layer. Hidden entirely in PIP mode.
+  Widget _buildUIOverlays() {
+    final screenH = MediaQuery.of(context).size.height;
+    final screenW = MediaQuery.of(context).size.width;
+    final topPad = MediaQuery.of(context).padding.top;
+
+    final double videoHeight = _isNotesOpen ? (screenH * 0.35) : screenH;
     final bool hideAllUI = _isSpeeding;
 
-    final Widget videoCore = Stack(
+    return Stack(
       fit: StackFit.expand,
       children: [
         GestureDetector(
@@ -625,7 +659,9 @@ class VideoItemState extends State<VideoItem>
           child: Stack(
             fit: StackFit.expand,
             children: [
-              // ── 1. VIDEO ──────────────────────────────────────────────
+              // ── Animated container matches notes-open shrink animation ──────
+              // (no video here — it's in the layer below, but we still need the
+              //  AnimatedContainer to drive the subtitle padding changes)
               Positioned(
                 top: 0,
                 left: 0,
@@ -634,19 +670,12 @@ class VideoItemState extends State<VideoItem>
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 350),
                   curve: Curves.fastOutSlowIn,
-                  color: Colors.black,
-                  child: _StableVideo(
-                    key: _stableKey,
-                    controller: _controller,
-                  ),
+                  color: Colors.transparent, // transparent — video is below
                 ),
               ),
 
-              // ── 2. GRADIENTS ──────────────────────────────────────────
-              if (!_isNotesOpen &&
-                  !_isLandscapeMode &&
-                  !_isInPipMode &&
-                  !hideAllUI) ...[
+              // ── Gradients ───────────────────────────────────────────────────
+              if (!_isNotesOpen && !_isLandscapeMode && !hideAllUI) ...[
                 Positioned(
                   top: 0,
                   left: 0,
@@ -679,7 +708,7 @@ class VideoItemState extends State<VideoItem>
                 ),
               ],
 
-              // ── 3. PLAY/PAUSE FLASH ───────────────────────────────────
+              // ── Play/Pause flash ─────────────────────────────────────────────
               if (_showPlayPause && !hideAllUI)
                 Center(
                   child: TweenAnimationBuilder<double>(
@@ -707,7 +736,7 @@ class VideoItemState extends State<VideoItem>
                   ),
                 ),
 
-              // ── 4. HEARTS ─────────────────────────────────────────────
+              // ── Hearts ───────────────────────────────────────────────────────
               if (!hideAllUI)
                 ..._hearts.map((pos) => Positioned(
                       left: pos.dx - 40,
@@ -729,11 +758,8 @@ class VideoItemState extends State<VideoItem>
                       ),
                     )),
 
-              // ── 5. PORTRAIT UI ────────────────────────────────────────
-              if (!_isNotesOpen &&
-                  !_isLandscapeMode &&
-                  !_isInPipMode &&
-                  !hideAllUI) ...[
+              // ── Portrait UI (bottom details + right actions) ─────────────────
+              if (!_isNotesOpen && !_isLandscapeMode && !hideAllUI) ...[
                 Positioned(
                   left: 16,
                   right: 100,
@@ -747,8 +773,8 @@ class VideoItemState extends State<VideoItem>
                 ),
               ],
 
-              // ── 6. PROGRESS BAR ───────────────────────────────────────
-              if (!_isNotesOpen && !_isInPipMode && !hideAllUI)
+              // ── Progress bar ─────────────────────────────────────────────────
+              if (!_isNotesOpen && !hideAllUI)
                 Positioned(
                   bottom: 0,
                   left: 0,
@@ -756,7 +782,7 @@ class VideoItemState extends State<VideoItem>
                   child: _buildProgressBar(),
                 ),
 
-              // ── 7. 2× SPEED BADGE ─────────────────────────────────────
+              // ── 2× Speed badge ───────────────────────────────────────────────
               AnimatedOpacity(
                 opacity: _isSpeeding ? 1.0 : 0.0,
                 duration: const Duration(milliseconds: 200),
@@ -771,7 +797,7 @@ class VideoItemState extends State<VideoItem>
           ),
         ),
 
-        // ── 8. EXIT FULLSCREEN (landscape) ────────────────────────────────
+        // ── Exit fullscreen button (landscape) ───────────────────────────────
         if (_isLandscapeMode && !_isNotesOpen && !hideAllUI)
           Positioned(
             right: 16,
@@ -796,35 +822,6 @@ class VideoItemState extends State<VideoItem>
             ),
           ),
       ],
-    );
-
-    // ── BlocListener re-syncs PIP arming whenever the nav tab changes ────────
-    // This is the key fix: when the user swipes to the Following tab while a
-    // video is active, we immediately call clearAutoPipMode() so Android no
-    // longer triggers PIP on background for that tab.
-    return BlocListener<AppCubit, AppState>(
-      listenWhen: (prev, curr) =>
-          widget.isActive && prev.currentNavIndex != curr.currentNavIndex,
-      listener: (context, state) {
-        final isOnHome = state.currentNavIndex == 0;
-        _syncPipArming(isOnHome: isOnHome);
-      },
-      child: PipWidget(
-        pipLayout: PipActionsLayout.media_only_pause,
-        onPipAction: _onPipAction,
-        pipChild: _buildPipOnlyVideo(),
-        child: videoCore,
-      ),
-    );
-  }
-
-  // ── Minimal video-only widget used as PIP child ───────────────────────────
-  Widget _buildPipOnlyVideo() {
-    return ColoredBox(
-      color: Colors.black,
-      child: _StableVideo(
-        controller: _controller,
-      ),
     );
   }
 
@@ -882,34 +879,6 @@ class VideoItemState extends State<VideoItem>
             ),
           ],
         ),
-        // const SizedBox(height: 8),
-        // GestureDetector(
-        //   onTap: () {
-        //     setState(() => _subtitlesVisible = !_subtitlesVisible);
-        //     _stableKey.currentState?.setSubtitleVisibility(_subtitlesVisible);
-        //     HapticFeedback.lightImpact();
-        //   },
-        //   child: Row(
-        //     mainAxisSize: MainAxisSize.min,
-        //     children: [
-        //       Icon(
-        //         _subtitlesVisible
-        //             ? Icons.subtitles_rounded
-        //             : Icons.subtitles_off_rounded,
-        //         color: Colors.white.withOpacity(0.75),
-        //         size: 13,
-        //       ),
-        //       // const SizedBox(width: 4),
-        //       // Text(
-        //       //   _subtitlesVisible ? 'Hide subtitles' : 'Show subtitles',
-        //       //   style: TextStyle(
-        //       //     color: Colors.white.withOpacity(0.75),
-        //       //     fontSize: 11,
-        //       //   ),
-        //       // ),
-        //     ],
-        //   ),
-        // ),
       ],
     );
   }
