@@ -27,6 +27,7 @@ class TikTokNotesSheet extends StatefulWidget {
   /// or null on failure.
   final Future<String?> Function()? onCaptureFrame;
   final Function(int timestamp)? onSeek;
+  final Function(bool isPicking)? onPickingMedia;
 
   const TikTokNotesSheet({
     required this.video,
@@ -34,6 +35,7 @@ class TikTokNotesSheet extends StatefulWidget {
     required this.onAddNote,
     this.onCaptureFrame,
     this.onSeek,
+    this.onPickingMedia,
     super.key,
   });
 
@@ -428,13 +430,14 @@ class _TikTokNotesSheetState extends State<TikTokNotesSheet> {
   }
 
   Future<void> _pickImage() async {
+    widget.onPickingMedia?.call(true);
     final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
-    if (picked != null && mounted) {
-      setState(() {
-        _pendingImagePath = picked.path;
-        _pendingImageIsFrame = false;
-      });
-    }
+    await Future.delayed(Duration.zero);
+    if (!mounted) return;
+    setState(() {
+      _pendingImagePath = picked?.path;
+      _pendingImageIsFrame = false;
+    });
   }
 
   Future<void> _playVoiceNote(String path) async {
