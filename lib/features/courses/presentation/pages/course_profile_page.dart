@@ -18,8 +18,13 @@ import '../../../../core/utils/thumbnail_cache_service.dart';
 
 class CourseProfilePage extends StatefulWidget {
   final String courseId;
+  final bool showBackButton; // add this
 
-  const CourseProfilePage({super.key, required this.courseId});
+  const CourseProfilePage({
+    super.key,
+    required this.courseId,
+    this.showBackButton = true, // default to true
+  });
 
   @override
   State<CourseProfilePage> createState() => _CourseProfilePageState();
@@ -39,11 +44,12 @@ class _CourseProfilePageState extends State<CourseProfilePage> {
           return Scaffold(
             backgroundColor: Colors.black,
             appBar: AppBar(
+              automaticallyImplyLeading: widget.showBackButton,
               backgroundColor: Colors.black,
-              leading: IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.white),
-                onPressed: () => context.pop(),
-              ),
+              // leading: IconButton(
+              //   icon: const Icon(Icons.arrow_back, color: Colors.white),
+              //   onPressed: () => context.pop(),
+              // ),
             ),
             body: Center(
               child: Text('Course not found'.tr(), // Localized
@@ -73,10 +79,14 @@ class _CourseProfilePageState extends State<CourseProfilePage> {
     return SliverAppBar(
       backgroundColor: Colors.black,
       pinned: true,
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back, color: Colors.white),
-        onPressed: () => context.pop(),
-      ),
+      automaticallyImplyLeading: widget.showBackButton,
+      leading: widget.showBackButton
+          ? IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                  color: Colors.white),
+              onPressed: () => context.pop(),
+            )
+          : const SizedBox.shrink(),
       title: Text(
         course.name,
         style:

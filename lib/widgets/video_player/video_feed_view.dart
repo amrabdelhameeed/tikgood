@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:tikgood/core/widgets/swipe_to_profile_wrapper.dart';
 import 'package:tikgood/core/widgets/tiktok_loading_widget.dart';
+import 'package:tikgood/features/courses/presentation/pages/course_profile_page.dart';
 import '../../features/home/presentation/bloc/app_cubit.dart';
 import '../../features/home/presentation/bloc/app_state.dart';
 import 'video_item.dart';
@@ -20,21 +22,14 @@ class VideoFeedView extends StatefulWidget {
 }
 
 class VideoFeedViewState extends State<VideoFeedView> {
-  // Back to the original simple PageController — no custom spring physics.
   final PageController _pageController = PageController();
   int _currentIndex = 0;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback(_checkForInitialTarget);
-  }
-
-  @override
-  void didUpdateWidget(VideoFeedView oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // Also check when widget updates (e.g., after data loads)
-    WidgetsBinding.instance.addPostFrameCallback(_checkForInitialTarget);
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _checkForInitialTarget());
   }
 
   @override
@@ -43,75 +38,96 @@ class VideoFeedViewState extends State<VideoFeedView> {
     super.dispose();
   }
 
+  // ── Called from BlocListener AND initState ────────────────────────────────
+  void _handleJumpTarget() {
+    final state = context.read<AppCubit>().state;
+    final targetId = state.targetVideoId;
+    if (targetId == null) return;
+
+    // Always read videoFeed fresh from state, not from a stale closure
+    final index = state.videoFeed.indexWhere((v) => v.id == targetId);
+    if (index == -1) return;
+
+    animateToVideo(index);
+    // DON'T clearJumpTarget here — VideoItem.initState needs targetTimestamp
+    // to still be set when it mounts after the page jump.
+    // VideoItem clears it itself after seeking.
+  }
+
+  void _checkForInitialTarget() {
+    final state = context.read<AppCubit>().state;
+    // Feed might not be loaded yet — retry once feed is non-empty
+    if (state.videoFeed.isEmpty) return;
+    _handleJumpTarget();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<AppCubit, AppState>(
-      builder: (context, state) {
-        final videos = state.videoFeed;
+    // BlocListener is OUTSIDE BlocBuilder so it always reads fresh state
+    // and is never affected by stale closure captures.
+    return BlocListener<AppCubit, AppState>(
+      listenWhen: (prev, curr) =>
+          curr.targetVideoId != null &&
+          curr.targetVideoId != prev.targetVideoId,
+      listener: (context, state) => _handleJumpTarget(),
+      child: BlocBuilder<AppCubit, AppState>(
+        builder: (context, state) {
+          final videos = state.videoFeed;
+          final courseMap = {for (final c in state.courses) c.id: c.name};
+          final followedCourseIds = {
+            for (final c in state.courses)
+              if (c.isFollowed) c.id,
+          };
 
-        // Quick lookup: courseId → courseName for the bottom details label.
-        final courseMap = {
-          for (final c in state.courses) c.id: c.name,
-        };
+          // Feed just loaded and we have a pending target → jump now
+          if (videos.isNotEmpty && state.targetVideoId != null) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) _handleJumpTarget();
+            });
+          }
 
-        // Set of followed course IDs for the follow button logic.
-        final followedCourseIds = {
-          for (final c in state.courses)
-            if (c.isFollowed) c.id,
-        };
-
-        return BlocListener<AppCubit, AppState>(
-          listenWhen: (prev, current) =>
-              current.targetVideoId != null &&
-              current.targetVideoId != prev.targetVideoId,
-          listener: (context, state) {
-            if (state.targetVideoId != null) {
-              final index =
-                  videos.indexWhere((v) => v.id == state.targetVideoId);
-              if (index != -1 && _pageController.hasClients) {
-                // If the video is found in the current feed, jump to it
-                // The VideoItem will handle seeking and clearing the target.
-                animateToVideo(index);
-              }
-            }
-          },
-          child: Stack(
+          return Stack(
             children: [
-              // ── Video Feed ──────────────────────────────────────────────
               videos.isEmpty
                   ? _buildEmptyState(context, state)
                   : PageView.builder(
                       scrollDirection: Axis.vertical,
                       controller: _pageController,
-                      // Original default physics — no custom spring.
                       itemCount: videos.length,
                       onPageChanged: (index) {
                         setState(() => _currentIndex = index);
-                        // Persist the last viewed video
                         if (index < videos.length) {
                           context.read<AppCubit>().saveLastViewedVideo(
                                 videos[index].id,
-                                0, // timestamp resets on page change; VideoItem updates it
+                                0,
                               );
                         }
                       },
                       itemBuilder: (context, index) {
                         final video = videos[index];
-                        return VideoItem(
-                          key: ValueKey(video.id),
-                          video: video,
-                          courseName: courseMap[video.courseId],
-                          isActive: index == _currentIndex,
-                          isFollowingCourse:
-                              followedCourseIds.contains(video.courseId),
-                          initialTimestamp: state.targetVideoId == video.id
-                              ? state.targetTimestamp
-                              : null,
+                        final courseName = courseMap[video.courseId];
+
+                        return SwipeToProfileWrapper(
+                          key: ValueKey('swipe_${video.id}'),
+                          overlayBuilder: (_) => CourseProfilePage(
+                            courseId: video.courseId,
+                            showBackButton:
+                                false, // wrapper provides the back button
+                          ),
+                          child: VideoItem(
+                            key: ValueKey(video.id),
+                            video: video,
+                            courseName: courseName,
+                            isActive: index == _currentIndex,
+                            isFollowingCourse:
+                                followedCourseIds.contains(video.courseId),
+                            initialTimestamp: state.targetVideoId == video.id
+                                ? state.targetTimestamp
+                                : null,
+                          ),
                         );
                       },
                     ),
-
-              // ── Top Navigation ──────────────────────────────────────────
               if (!state.isFullscreen)
                 Positioned(
                   top: 0,
@@ -119,7 +135,6 @@ class VideoFeedViewState extends State<VideoFeedView> {
                   right: 0,
                   child: TopNavigation(
                     state: state,
-                    // Change 'onMenuPressed' to 'onLivePressed' here:
                     onLivePressed: () =>
                         widget.scaffoldKey.currentState?.openDrawer(),
                     onFollowingTabPressed: () =>
@@ -145,28 +160,22 @@ class VideoFeedViewState extends State<VideoFeedView> {
                     },
                   ),
                 ),
-
-              // ── Loading overlay ─────────────────────────────────────────
               if (state.isLoading)
                 const SizedBox(
                   key: ValueKey('loading'),
                   child: TikTokLoadingAnimation(),
                 ),
             ],
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
-  void _checkForInitialTarget(_) {
-    final state = context.read<AppCubit>().state;
-    if (state.targetVideoId != null) {
-      final index =
-          state.videoFeed.indexWhere((v) => v.id == state.targetVideoId);
-      if (index != -1) {
-        animateToVideo(index);
-      }
+  void animateToVideo(int index) {
+    if (_pageController.hasClients) {
+      _pageController.jumpToPage(index);
+      setState(() => _currentIndex = index);
     }
   }
 
@@ -208,11 +217,5 @@ class VideoFeedViewState extends State<VideoFeedView> {
         ],
       ),
     );
-  }
-
-  void animateToVideo(int index) {
-    if (_pageController.hasClients) {
-      _pageController.jumpToPage(index);
-    }
   }
 }
