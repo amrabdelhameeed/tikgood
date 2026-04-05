@@ -1,12 +1,11 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:printing/printing.dart';
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
 import 'package:media_kit/media_kit.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:flutter_html_to_pdf_plus/flutter_html_to_pdf_plus.dart';
 import 'package:tikgood/core/utils/thumbnail_cache_service.dart';
 import 'package:tikgood/core/widgets/tiktok_loading_widget.dart';
 import '../../../courses/data/models/video.dart';
@@ -18,7 +17,7 @@ import '../../../home/presentation/bloc/app_state.dart';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const _accent = Color(0xFFFE2C55);
-const _accentSecondary = Color(0xFF25F4EE); // TikTok cyan
+const _accentSecondary = Color(0xFF25F4EE);
 const _surface = Color(0xFF111111);
 const _card = Color(0xFF161616);
 const _cardElevated = Color(0xFF1E1E1E);
@@ -37,7 +36,6 @@ class NotesPage extends StatefulWidget {
 class _NotesPageState extends State<NotesPage> {
   String _currentFilter = 'all';
 
-  // ── Shared voice player (ONE player for all voice notes) ──────────────────
   Player? _sharedVoicePlayer;
   String? _currentlyPlayingNoteId;
 
@@ -46,9 +44,7 @@ class _NotesPageState extends State<NotesPage> {
     super.initState();
     _sharedVoicePlayer = Player();
     _sharedVoicePlayer!.stream.completed.listen((done) {
-      if (done && mounted) {
-        setState(() => _currentlyPlayingNoteId = null);
-      }
+      if (done && mounted) setState(() => _currentlyPlayingNoteId = null);
     });
   }
 
@@ -60,36 +56,28 @@ class _NotesPageState extends State<NotesPage> {
 
   Future<void> _toggleVoice(String noteId, String path) async {
     if (_sharedVoicePlayer == null) return;
-
-    // same note → pause
     if (_currentlyPlayingNoteId == noteId) {
       await _sharedVoicePlayer!.pause();
       setState(() => _currentlyPlayingNoteId = null);
       return;
     }
-
-    // check file exists (local only)
     if (!await File(path).exists()) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Voice file not found on device'),
-            backgroundColor: _accent,
-            behavior: SnackBarBehavior.floating,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Text('Voice file not found on device'),
+          backgroundColor: _accent,
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ));
       }
       return;
     }
-
     setState(() => _currentlyPlayingNoteId = noteId);
     await _sharedVoicePlayer!.open(Media('file://$path'));
     await _sharedVoicePlayer!.play();
   }
 
-  // ── AppBar ─────────────────────────────────────────────────────────────────
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
       backgroundColor: Colors.black,
@@ -189,20 +177,17 @@ class _NotesPageState extends State<NotesPage> {
   }
 
   // ── Actions ────────────────────────────────────────────────────────────────
+
   Future<void> _playNoteAtTimestamp(Note note, Video video) async {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Playing "${video.name}" at ${_fmt(note.timestamp)}',
-          style: const TextStyle(fontSize: 13),
-        ),
-        backgroundColor: _accent,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('Playing "${video.name}" at ${_fmt(note.timestamp)}',
+          style: const TextStyle(fontSize: 13)),
+      backgroundColor: _accent,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      duration: const Duration(seconds: 2),
+    ));
     context.go('/');
     Future.delayed(const Duration(milliseconds: 100), () {
       if (mounted)
@@ -219,14 +204,28 @@ class _NotesPageState extends State<NotesPage> {
       barrierDismissible: false,
       builder: (_) => const Center(child: TikTokLoadingAnimation()),
     );
+
     try {
-      final pdf =
-          await _generatePdf(courses.whereType<Course>().toList(), storage);
+      final html = _buildHtml(courses.whereType<Course>().toList(), storage);
+      final tempDir = await getTemporaryDirectory();
+
+      final file = await FlutterHtmlToPdf.convertFromHtmlContent(
+        content: html,
+        configuration: PrintPdfConfiguration(
+          targetDirectory: tempDir.path,
+          targetName: 'TikGood_Notes_${DateTime.now().millisecondsSinceEpoch}',
+          printSize: PrintSize.A4,
+          printOrientation: PrintOrientation.Portrait,
+          textDirection: TextDirection.RTL,
+          margins: PdfPageMargin(top: 40, bottom: 40, left: 32, right: 32),
+        ),
+      );
+
       if (mounted) {
         context.pop();
         await Printing.layoutPdf(
-          onLayout: (_) => pdf,
-          name: 'TikGood_Notes_${DateTime.now().millisecondsSinceEpoch}.pdf',
+          onLayout: (_) async => await file.readAsBytes(),
+          name: file.path.split('/').last,
         );
       }
     } catch (e) {
@@ -239,119 +238,283 @@ class _NotesPageState extends State<NotesPage> {
     }
   }
 
-  Future<Uint8List> _generatePdf(
-      List<Course> courses, StorageService storage) async {
-    final pdf = pw.Document();
-    for (final course in courses) {
+  String _buildHtml(List<Course> courses, StorageService storage) {
+    final buf = StringBuffer();
+    final now = DateTime.now();
+
+    buf.write('''
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Cairo', Arial, sans-serif;
+    background: #fff;
+    color: #111;
+    padding: 0;
+    font-size: 13px;
+  }
+
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 9px;
+    color: #999;
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+    border-bottom: 0.5px solid #ddd;
+  }
+
+  .course-banner {
+    background: linear-gradient(135deg, #FE2C55, #FF6B6B);
+    color: white;
+    padding: 16px 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+  }
+  .course-banner .label {
+    font-size: 9px;
+    opacity: 0.8;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .course-banner .name {
+    font-size: 17px;
+    font-weight: 700;
+    margin: 4px 0 6px 0;
+    direction: auto;
+  }
+  .course-banner .meta { font-size: 11px; opacity: 0.75; }
+
+  .video-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #f0f0f0;
+    border-left: 3px solid #FE2C55;
+    padding: 10px 14px;
+    border-radius: 6px;
+    margin: 16px 0 8px 0;
+    gap: 10px;
+  }
+  .video-title {
+    font-weight: 700;
+    font-size: 13px;
+    direction: auto;
+    flex: 1;
+  }
+  .note-count {
+    background: #FE2C55;
+    color: white;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 20px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .note-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    background: #f9f9f9;
+    border: 0.5px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 10px;
+    margin-bottom: 7px;
+  }
+  .timestamp {
+    background: #FE2C55;
+    color: white;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 3px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    font-family: monospace;
+  }
+  .type-badge {
+    background: #e8e8e8;
+    color: #555;
+    font-size: 9px;
+    padding: 3px 7px;
+    border-radius: 4px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .type-badge.text   { background: #dbeafe; color: #1d4ed8; }
+  .type-badge.voice  { background: #ffedd5; color: #c2410c; }
+  .type-badge.image  { background: #f3e8ff; color: #7e22ce; }
+  .type-badge.bookmark { background: #ffe4e6; color: #be123c; }
+
+  .note-content {
+    flex: 1;
+    direction: auto;
+    line-height: 1.6;
+    font-size: 12px;
+  }
+  .note-content img {
+    max-width: 100%;
+    max-height: 160px;
+    border-radius: 6px;
+    margin-top: 6px;
+    object-fit: contain;
+    display: block;
+  }
+  .bookmark-text { color: #FE2C55; font-style: italic; }
+  .voice-text    { color: #f97316; }
+  .missing-text  { color: #aaa; font-style: italic; }
+
+  .page-break { page-break-after: always; }
+
+  .footer {
+    font-size: 9px;
+    color: #bbb;
+    text-align: center;
+    margin-top: 24px;
+    padding-top: 8px;
+    border-top: 0.5px solid #eee;
+  }
+</style>
+</head>
+<body>
+''');
+
+    final exportDate = '${now.day}/${now.month}/${now.year}';
+    final validCourses = courses.where((c) {
+      final videos = storage.getVideosForCourse(c.id);
+      return videos.any((v) => storage.getNotesForVideo(v.id).isNotEmpty);
+    }).toList();
+
+    for (int ci = 0; ci < validCourses.length; ci++) {
+      final course = validCourses[ci];
       final videos = storage.getVideosForCourse(course.id);
       final vwn = videos
           .map((v) => (video: v, notes: storage.getNotesForVideo(v.id)))
           .where((vn) => vn.notes.isNotEmpty)
           .toList();
-      if (vwn.isEmpty) continue;
 
-      pdf.addPage(pw.MultiPage(
-        pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(32),
-        build: (ctx) {
-          final content = <pw.Widget>[
-            pw.Text('Course: ${course.name}',
-                style:
-                    pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold)),
-            pw.SizedBox(height: 20),
-          ];
-          for (final vn in vwn) {
-            content
-              ..add(pw.Text('Video: ${vn.video.name}',
-                  style: pw.TextStyle(
-                      fontSize: 16, fontWeight: pw.FontWeight.bold)))
-              ..add(pw.SizedBox(height: 10));
+      final totalNotes = vwn.fold<int>(0, (s, vn) => s + vn.notes.length);
 
-            for (final note in vn.notes) {
-              String text = note.content;
-              pw.Widget? img;
-              if (note.type == 'image_text') {
-                final i = note.content.indexOf('\x1F');
-                final path =
-                    i != -1 ? note.content.substring(0, i) : note.content;
-                text = i != -1
-                    ? 'Image Note: ${note.content.substring(i + 1)}'
-                    : 'Image Note:';
-                try {
-                  img = pw.Image(pw.MemoryImage(File(path).readAsBytesSync()),
-                      height: 150, fit: pw.BoxFit.contain);
-                } catch (_) {}
-              } else if (note.type == 'image') {
-                text = 'Image Note:';
-                try {
-                  img = pw.Image(
-                      pw.MemoryImage(File(note.content).readAsBytesSync()),
-                      height: 150,
-                      fit: pw.BoxFit.contain);
-                } catch (_) {}
-              } else if (note.type == 'voice') {
-                text = 'Voice Note (Recording)';
-              } else if (note.type == 'bookmark') {
-                text = 'Bookmark';
+      if (ci > 0) buf.write('<div class="page-break"></div>');
+
+      // Page header
+      buf.write('''
+<div class="page-header">
+  <span>TikGood - Notes Export</span>
+  <span>$exportDate</span>
+</div>
+''');
+
+      // Course banner
+      buf.write('''
+<div class="course-banner">
+  <div class="label">Course</div>
+  <div class="name">${_esc(course.name)}</div>
+  <div class="meta">$totalNotes ${totalNotes == 1 ? 'note' : 'notes'} across ${vwn.length} ${vwn.length == 1 ? 'video' : 'videos'}</div>
+</div>
+''');
+
+      // Videos
+      for (final vn in vwn) {
+        buf.write('''
+<div class="video-header">
+  <div class="video-title">${_esc(vn.video.name)}</div>
+  <div class="note-count">${vn.notes.length}</div>
+</div>
+''');
+
+        for (final note in vn.notes) {
+          final ts = _fmt(note.timestamp);
+          String typeLabel;
+          String contentHtml;
+
+          switch (note.type) {
+            case 'text':
+              typeLabel = 'Text';
+              contentHtml = _esc(note.content);
+              break;
+            case 'bookmark':
+              typeLabel = 'Bookmark';
+              contentHtml =
+                  '<span class="bookmark-text">Bookmarked moment</span>';
+              break;
+            case 'voice':
+              typeLabel = 'Voice';
+              contentHtml =
+                  '<span class="voice-text">Voice note (recording)</span>';
+              break;
+            case 'image':
+              typeLabel = 'Image';
+              contentHtml = _imageTag(note.content);
+              break;
+            case 'image_text':
+              typeLabel = 'Image';
+              final i = note.content.indexOf('\x1F');
+              final path =
+                  i != -1 ? note.content.substring(0, i) : note.content;
+              final caption = i != -1 ? note.content.substring(i + 1) : '';
+
+              // 1. Initialize with the caption if it exists
+              contentHtml = '';
+              if (caption.isNotEmpty) {
+                contentHtml = '<span>${_esc(caption)}</span><br>';
               }
 
-              content.add(pw.Container(
-                margin: const pw.EdgeInsets.only(bottom: 8, left: 16),
-                padding: const pw.EdgeInsets.all(8),
-                decoration: pw.BoxDecoration(
-                  border: pw.Border.all(color: PdfColors.grey300),
-                  borderRadius:
-                      const pw.BorderRadius.all(pw.Radius.circular(4)),
-                ),
-                child: pw.Row(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Text('[${_fmt(note.timestamp)}]',
-                        style: const pw.TextStyle(color: PdfColors.grey700)),
-                    pw.SizedBox(width: 10),
-                    pw.Expanded(
-                      child: pw.Column(
-                        crossAxisAlignment: pw.CrossAxisAlignment.start,
-                        children: [
-                          pw.Text(text),
-                          if (img != null) ...[pw.SizedBox(height: 8), img],
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ));
-            }
-            content.add(pw.SizedBox(height: 20));
+              // 2. Append the image tag afterward
+              contentHtml += _imageTag(path);
+              break;
+            default:
+              typeLabel = note.type;
+              contentHtml = _esc(note.content);
           }
-          return content;
-        },
-      ));
+
+          buf.write('''
+<div class="note-row">
+  <span class="timestamp">$ts</span>
+  <span class="type-badge ${note.type == 'image_text' ? 'image' : note.type}">$typeLabel</span>
+  <div class="note-content">$contentHtml</div>
+</div>
+''');
+        }
+      }
+
+      buf.write(
+          '<div class="footer">Generated by TikGood on $exportDate</div>');
     }
-    return pdf.save();
+
+    buf.write('</body></html>');
+    return buf.toString();
   }
 
+  String _imageTag(String path) {
+    if (!File(path).existsSync()) {
+      return '<span class="missing-text">[Image not found]</span>';
+    }
+    return '<img src="file://$path" alt="note-image">';
+  }
+
+  String _esc(String s) => s
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;');
+
   // ── Helpers ────────────────────────────────────────────────────────────────
+
   Widget _emptyState(IconData icon, String message) => Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // TikTok-style glitch icon effect
-            Stack(
-              alignment: Alignment.center,
-              children: [
-                // Transform.translate(
-                //   offset: const Offset(-2, 0),
-                //   child: Icon(icon,
-                //       size: 64, color: _accentSecondary.withOpacity(0.5)),
-                // ),
-                // Transform.translate(
-                //   offset: const Offset(2, 0),
-                //   child: Icon(icon, size: 64, color: _accent.withOpacity(0.5)),
-                // ),
-                Icon(icon, size: 64, color: _textTertiary),
-              ],
-            ),
+            Icon(icon, size: 64, color: _textTertiary),
             const SizedBox(height: 16),
             Text(message,
                 style: const TextStyle(color: _textSecondary, fontSize: 14),
@@ -450,12 +613,10 @@ class _CourseSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Course header
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
           child: Row(
             children: [
-              // TikTok-style dual-color icon
               Stack(
                 children: [
                   Transform.translate(
@@ -484,7 +645,6 @@ class _CourseSection extends StatelessWidget {
                   ),
                 ),
               ),
-              // TikTok-style pill counter
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
@@ -546,7 +706,6 @@ class _VideoNotesCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Video header
           InkWell(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
             onTap: () {
@@ -556,20 +715,12 @@ class _VideoNotesCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               child: Row(
                 children: [
-                  // TikTok-style video thumbnail placeholder
                   Container(
                     width: 52,
                     height: 52,
-                    // decoration: BoxDecoration(
-                    //   color: Colors.black,
-                    //   borderRadius: BorderRadius.circular(8),
-                    //   border:
-                    //       Border.all(color: _accent.withOpacity(0.3), width: 1),
-                    // ),
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        // Glitch layers
                         Transform.translate(
                           offset: const Offset(-1.5, 0),
                           child: const Icon(Icons.play_circle_fill,
@@ -608,9 +759,7 @@ class _VideoNotesCard extends StatelessWidget {
                               width: 4,
                               height: 4,
                               decoration: const BoxDecoration(
-                                color: _accent,
-                                shape: BoxShape.circle,
-                              ),
+                                  color: _accent, shape: BoxShape.circle),
                             ),
                             const SizedBox(width: 5),
                             Text(
@@ -630,7 +779,6 @@ class _VideoNotesCard extends StatelessWidget {
             ),
           ),
           Container(color: _divider, height: 0.5),
-          // Note items
           ...notes.asMap().entries.map((e) {
             final isLast = e.key == notes.length - 1;
             return Column(
@@ -720,14 +868,8 @@ class _NoteCardItemState extends State<_NoteCardItem> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Thumbnail ──────────────────────────────────────────────
-            _Thumbnail(
-              thumbPath: _thumbPath,
-              timestamp: widget.note.timestamp,
-            ),
+            _Thumbnail(thumbPath: _thumbPath, timestamp: widget.note.timestamp),
             const SizedBox(width: 12),
-
-            // ── Content ────────────────────────────────────────────────
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -749,7 +891,6 @@ class _NoteCardItemState extends State<_NoteCardItem> {
                             color: _textSecondary, fontSize: 11),
                       ),
                       const Spacer(),
-                      // Notion sync badge
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -764,11 +905,9 @@ class _NoteCardItemState extends State<_NoteCardItem> {
                           ),
                           if (widget.note.isSyncedWithNotion) ...[
                             const SizedBox(width: 3),
-                            const Text(
-                              'Synced',
-                              style: TextStyle(
-                                  color: Color(0xFF22C55E), fontSize: 10),
-                            ),
+                            const Text('Synced',
+                                style: TextStyle(
+                                    color: Color(0xFF22C55E), fontSize: 10)),
                           ],
                         ],
                       ),
@@ -777,8 +916,6 @@ class _NoteCardItemState extends State<_NoteCardItem> {
                 ],
               ),
             ),
-
-            // ── Play CTA ───────────────────────────────────────────────
             const SizedBox(width: 10),
             GestureDetector(
               onTap: widget.onPlay,
@@ -858,7 +995,6 @@ class _NoteCardItemState extends State<_NoteCardItem> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Play/pause icon
                 Container(
                   width: 28,
                   height: 28,
@@ -875,7 +1011,6 @@ class _NoteCardItemState extends State<_NoteCardItem> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                // Waveform bars
                 ...List.generate(14, (i) {
                   final heights = [
                     5.0,
@@ -907,7 +1042,7 @@ class _NoteCardItemState extends State<_NoteCardItem> {
                 }),
                 const SizedBox(width: 8),
                 Text(
-                  widget.isPlayingVoice ? 'Playing…' : 'Voice note',
+                  widget.isPlayingVoice ? 'Playing...' : 'Voice note',
                   style: TextStyle(
                     color: Colors.orange
                         .withOpacity(widget.isPlayingVoice ? 1.0 : 0.7),
@@ -966,7 +1101,6 @@ class _NoteCardItemState extends State<_NoteCardItem> {
                               color: _textTertiary, size: 28),
                         ),
                       ),
-                // TikTok-style gradient overlay on image
                 if (exists)
                   Positioned(
                     bottom: 0,
@@ -980,13 +1114,12 @@ class _NoteCardItemState extends State<_NoteCardItem> {
                           end: Alignment.bottomCenter,
                           colors: [
                             Colors.transparent,
-                            Colors.black.withOpacity(0.5),
+                            Colors.black.withOpacity(0.5)
                           ],
                         ),
                       ),
                     ),
                   ),
-                // Expand icon
                 if (exists)
                   const Positioned(
                     bottom: 6,
@@ -1051,7 +1184,6 @@ class _Thumbnail extends StatelessWidget {
                     ),
                   ),
           ),
-          // Gradient overlay
           ClipRRect(
             borderRadius: BorderRadius.circular(6),
             child: Container(
@@ -1064,7 +1196,6 @@ class _Thumbnail extends StatelessWidget {
               ),
             ),
           ),
-          // Timestamp chip — TikTok style
           Positioned(
             bottom: 3,
             right: 3,
@@ -1112,10 +1243,8 @@ class _TypeBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: (cfg.$2 as Color).withOpacity(0.12),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(
-          color: (cfg.$2 as Color).withOpacity(0.2),
-          width: 0.5,
-        ),
+        border:
+            Border.all(color: (cfg.$2 as Color).withOpacity(0.2), width: 0.5),
       ),
       child: Icon(cfg.$1 as IconData, color: cfg.$2 as Color, size: 13),
     );
