@@ -6,6 +6,7 @@ import 'package:tikgood/core/widgets/tiktok_loading_widget.dart';
 import 'package:tikgood/features/courses/presentation/pages/course_profile_page.dart';
 import '../../features/home/presentation/bloc/app_cubit.dart';
 import '../../features/home/presentation/bloc/app_state.dart';
+import '../../core/database/storage_service.dart';
 import 'video_item.dart';
 import 'top_navigation.dart';
 
@@ -124,6 +125,9 @@ class VideoFeedViewState extends State<VideoFeedView> {
                             initialTimestamp: state.targetVideoId == video.id
                                 ? state.targetTimestamp
                                 : null,
+                            subtitleVisible: context
+                                .read<StorageService>()
+                                .getSubtitleVisible(),
                           ),
                         );
                       },

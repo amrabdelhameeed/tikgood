@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:marquee/marquee.dart';
@@ -23,6 +24,7 @@ import '../../features/home/presentation/bloc/app_state.dart';
 import '../../core/database/storage_service.dart';
 import 'action_button.dart';
 import 'notes_sheet.dart';
+import 'package:share_plus/share_plus.dart';
 
 class _TrianglePainter extends CustomPainter {
   @override
@@ -145,8 +147,13 @@ class _TikTokSpeedBadge extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 class _StableVideo extends StatefulWidget {
   final mk.VideoController controller;
+  final bool subtitleVisible;
 
-  const _StableVideo({required this.controller, super.key});
+  const _StableVideo({
+    required this.controller,
+    required this.subtitleVisible,
+    super.key,
+  });
 
   @override
   _StableVideoState createState() => _StableVideoState();
@@ -157,27 +164,17 @@ class _StableVideoState extends State<_StableVideo> {
   late final Widget _cached;
 
   EdgeInsets _lastPadding = EdgeInsets.zero;
+  bool _subtitleVisible = true;
 
   void setSubtitlePadding(EdgeInsets padding) {
     _lastPadding = padding;
     _videoKey.currentState?.setSubtitleViewPadding(padding);
   }
 
-  void setSubtitleVisibility(bool visible) {
-    if (visible) {
-      Future.delayed(const Duration(milliseconds: 100), () {
-        _videoKey.currentState?.setSubtitleViewPadding(_lastPadding);
-      });
-    } else {
-      _videoKey.currentState?.setSubtitleViewPadding(const EdgeInsets.only(
-        bottom: 1000,
-      ));
-    }
-  }
-
   @override
   void initState() {
     super.initState();
+    _subtitleVisible = widget.subtitleVisible;
     _cached = mk.Video(
       key: _videoKey,
       wakelock: true,
@@ -189,8 +186,12 @@ class _StableVideoState extends State<_StableVideo> {
       pauseUponEnteringBackgroundMode: false,
       fill: Colors.transparent,
       subtitleViewConfiguration:
-          const mk.SubtitleViewConfiguration(visible: true),
+          mk.SubtitleViewConfiguration(visible: _subtitleVisible),
     );
+    // WidgetsBinding.instance.addPostFrameCallback((_) {
+    //   if (!mounted) return;
+    //   setSubtitleVisibility(_subtitleVisible);
+    // });
   }
 
   @override
@@ -212,6 +213,7 @@ class VideoItem extends StatefulWidget {
   final String? courseName;
   final int? initialTimestamp;
   final bool isFollowingCourse;
+  final bool subtitleVisible;
 
   const VideoItem({
     required this.video,
@@ -219,6 +221,7 @@ class VideoItem extends StatefulWidget {
     this.courseName,
     this.initialTimestamp,
     this.isFollowingCourse = false,
+    this.subtitleVisible = true,
     super.key,
   });
 
@@ -231,6 +234,7 @@ class VideoItemState extends State<VideoItem>
   late final Player _player = Player();
   late final mk.VideoController _controller = mk.VideoController(_player);
   late final AnimationController _diskController;
+  bool _isPickingMedia = false;
 
   final GlobalKey<_StableVideoState> _stableKey =
       GlobalKey<_StableVideoState>();
@@ -294,7 +298,13 @@ class VideoItemState extends State<VideoItem>
       // Sync the PIP button icon with the actual playing state
       AndroidPIP().setIsPlaying(playing);
     });
-
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      debugPrint('stableKey from duration: ${_stableKey.currentState}');
+      _stableKey.currentState?.setSubtitlePadding(
+        const EdgeInsets.only(bottom: 400),
+      );
+    });
     _positionSub = _player.stream.position.listen((position) {
       if (!mounted || _isSeeking || _disposed) return;
       if (_totalDuration.inMilliseconds > 0) {
@@ -346,7 +356,6 @@ class VideoItemState extends State<VideoItem>
   }
 
   // ── App lifecycle (foreground ↔ background) ───────────────────────────────
-
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (!widget.isActive) return;
@@ -354,22 +363,20 @@ class VideoItemState extends State<VideoItem>
     final appCubit = context.read<AppCubit>();
     final isOnHome = appCubit.state.currentNavIndex == 0;
 
-    if (state == AppLifecycleState.inactive ||
-        state == AppLifecycleState.paused) {
+    if (state == AppLifecycleState.inactive) {
       if (mounted && isOnHome) {
-        _closeNotesSheet();
+        if (!_isPickingMedia) _closeNotesSheet();
         setState(() => _isInPipMode = true);
         appCubit.setPipMode(true);
       }
     } else if (state == AppLifecycleState.resumed) {
       if (mounted) {
+        _isPickingMedia = false;
         setState(() => _isInPipMode = false);
         appCubit.setPipMode(false);
       }
     }
-  }
-
-  // ── PIP arming/disarming ──────────────────────────────────────────────────
+  } // ── PIP arming/disarming ──────────────────────────────────────────────────
 
   Future<void> _syncPipArming({required bool isOnHome}) async {
     try {
@@ -378,10 +385,9 @@ class VideoItemState extends State<VideoItem>
 
       if (isOnHome) {
         await AndroidPIP().setAutoPipMode();
-        debugPrint('PIP: armed (home tab, video=${widget.video.id})');
+        AndroidPIP().setIsPlaying(_isPlaying);
       } else {
         await AndroidPIP().setAutoPipMode(autoEnter: false);
-        debugPrint('PIP: disarmed (not home tab, video=${widget.video.id})');
       }
     } catch (e) {
       debugPrint('PIP: sync failed — $e');
@@ -389,6 +395,7 @@ class VideoItemState extends State<VideoItem>
   }
 
   void _onPipAction(PipAction action) {
+    debugPrint('PIP action: $action');
     switch (action) {
       case PipAction.play:
         _player.play();
@@ -579,29 +586,21 @@ class VideoItemState extends State<VideoItem>
     final screenH = MediaQuery.of(context).size.height;
     final screenW = MediaQuery.of(context).size.width;
 
-    final containerH = screenH;
-    final renderedH = _renderedVideoHeight(screenW, containerH);
-    final barH = (containerH - renderedH) / 2;
-    final subtitleOffset = renderedH * 0.2;
-    final bottomPadding = _isLandscapeMode
-        ? 0.0
-        : (barH - subtitleOffset).clamp(0.0, double.infinity);
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        final videoHeight = _isNotesOpen ? screenH * 0.35 : screenH;
-        final renderedH = _renderedVideoHeight(screenW, videoHeight);
-        final barH = (videoHeight - renderedH) / 2;
-        final subtitleOffset = renderedH * 0.2;
-        final bottomPadding = _isLandscapeMode
-            ? 0.0
-            : (barH - subtitleOffset).clamp(0.0, double.infinity);
-        _stableKey.currentState?.setSubtitlePadding(
-          EdgeInsets.only(bottom: bottomPadding),
-        );
-      }
-    });
+      if (!mounted) return;
+      if (_stableKey.currentState == null) return;
 
+      final videoHeight = _isNotesOpen ? screenH * 0.35 : screenH;
+      final renderedH = _renderedVideoHeight(screenW, videoHeight);
+      final barH = (videoHeight - renderedH) / 2;
+      final subtitleOffset = renderedH * 0.001;
+      final bottomPadding = _isLandscapeMode
+          ? 0.0
+          : (barH + subtitleOffset).clamp(0.0, double.infinity);
+      _stableKey.currentState?.setSubtitlePadding(
+        EdgeInsets.only(bottom: bottomPadding),
+      );
+    });
     // ── BlocListener re-syncs PIP arming whenever the nav tab changes ────────
     return BlocListener<AppCubit, AppState>(
       listenWhen: (prev, curr) =>
@@ -637,6 +636,7 @@ class VideoItemState extends State<VideoItem>
                     child: _StableVideo(
                       key: _stableKey,
                       controller: _controller,
+                      subtitleVisible: widget.subtitleVisible,
                     ),
                   ),
                 ],
@@ -657,6 +657,7 @@ class VideoItemState extends State<VideoItem>
       color: Colors.black,
       child: _StableVideo(
         controller: _controller,
+        subtitleVisible: widget.subtitleVisible,
       ),
     );
   }
@@ -822,7 +823,7 @@ class VideoItemState extends State<VideoItem>
         ),
 
         // ── Exit fullscreen button (landscape) ───────────────────────────────
-        if (_isLandscapeMode && !_isNotesOpen && !hideAllUI)
+        if (_isLandscapeMode && !_isNotesOpen && !hideAllUI && !_isInPipMode)
           Positioned(
             right: 16,
             top: topPad + 8,
@@ -937,7 +938,7 @@ class VideoItemState extends State<VideoItem>
         const SizedBox(height: 24),
         TikTokActionButton(
           icon: TikTokIcons.chat_bubble,
-          label: '$noteCount',
+          label: noteCount == 0 ? 'Add 1st'.tr() : '$noteCount',
           onTap: _showNotesSheet,
           iconSize: 25,
         ),
@@ -966,7 +967,14 @@ class VideoItemState extends State<VideoItem>
         TikTokActionButton(
           icon: TikTokIcons.reply,
           label: 'Share',
-          onTap: () {},
+          onTap: () {
+            SharePlus.instance.share(
+              ShareParams(
+                text:
+                    'I\'m using TikGood app — check it out! 🎓\nhttps://github.com/amrabdelhameeed/tikgood/',
+              ),
+            );
+          },
           mirrorHorizontal: false,
           iconSize: 20,
         ),
@@ -1199,9 +1207,12 @@ class VideoItemState extends State<VideoItem>
       context: context,
       isDismissible: true,
       isScrollControlled: true,
+      enableDrag: true,
+      useRootNavigator: false,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.transparent,
       builder: (context) => TikTokNotesSheet(
+        onPickingMedia: (isPicking) => _isPickingMedia = isPicking,
         video: widget.video,
         currentTimestamp: _player.state.position.inSeconds,
         onSeek: (timestamp) {

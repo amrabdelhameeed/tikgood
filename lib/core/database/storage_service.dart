@@ -112,6 +112,11 @@ class StorageService {
   Future<void> saveCloudinaryUploadPreset(String preset) async =>
       await settingsBox.put('cloudinary_upload_preset', preset);
 
+  // --- Settings: Subtitle visibility ---
+  bool getSubtitleVisible() => settingsBox.get('subtitle_visible') ?? true;
+  Future<void> saveSubtitleVisible(bool visible) async =>
+      await settingsBox.put('subtitle_visible', visible);
+
   // --- Settings: Last viewed video ---
   String? getLastViewedVideoId() => settingsBox.get('last_viewed_video_id');
   Future<void> saveLastViewedVideoId(String videoId) async =>
@@ -193,11 +198,13 @@ class StorageService {
   }
 
   // --- Streak ---
-  int getStreakCount() => settingsBox.get('streak_count', defaultValue: 0) as int;
+  int getStreakCount() =>
+      settingsBox.get('streak_count', defaultValue: 0) as int;
   Future<void> saveStreakCount(int count) async =>
       await settingsBox.put('streak_count', count);
 
-  String? getLastOpenDate() => settingsBox.get('streak_last_open_date') as String?;
+  String? getLastOpenDate() =>
+      settingsBox.get('streak_last_open_date') as String?;
   Future<void> saveLastOpenDate(String isoDate) async =>
       await settingsBox.put('streak_last_open_date', isoDate);
 

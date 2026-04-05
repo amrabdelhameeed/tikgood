@@ -60,6 +60,7 @@ class _SettingsPageState extends State<SettingsPage>
   bool _interceptEnabled = false;
   bool _showSaved = false;
   bool _goalReminderEnabled = true;
+  bool _subtitleVisible = true;
 
   static const String _notionApiKeyVideoUrl =
       'https://www.youtube.com/watch?v=d4UeQVHB0vo';
@@ -110,6 +111,10 @@ class _SettingsPageState extends State<SettingsPage>
     // Initialize goal reminder setting
     final goalService = context.read<GoalService>();
     _goalReminderEnabled = goalService.getGoalReminderEnabled();
+
+    // Initialize subtitle visibility setting
+    final storageService = context.read<StorageService>();
+    _subtitleVisible = storageService.getSubtitleVisible();
   }
 
   @override
@@ -298,6 +303,15 @@ class _SettingsPageState extends State<SettingsPage>
                 label: 'settings_liked_videos'.tr(),
                 onTap: () => context.push('/liked-videos'),
               ),
+            ],
+          ),
+          _buildSection(
+            label: 'settings_section_subtitle'.tr(),
+            subtitle: 'settings_subtitle_subtitle'.tr(),
+            icon: Icons.closed_caption_rounded,
+            iconColor: _kCyan,
+            children: [
+              _buildSubtitleVisibilityRow(),
             ],
           ),
           _buildSection(
@@ -752,6 +766,63 @@ class _SettingsPageState extends State<SettingsPage>
     await goalService.setGoalReminderEnabled(value);
     setState(() {
       _goalReminderEnabled = value;
+    });
+  }
+
+  Widget _buildSubtitleVisibilityRow() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: _kCyan.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.closed_caption_rounded,
+                color: _kCyan, size: 17),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'settings_subtitle_visibility_title'.tr(),
+                  style: const TextStyle(
+                    color: _kWhite,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _subtitleVisible ? 'enabled'.tr() : 'disabled'.tr(),
+                  style: TextStyle(
+                    color:
+                        _subtitleVisible ? _kCyan.withOpacity(0.8) : _kWhite30,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _buildTikTokSwitch(
+            value: _subtitleVisible,
+            onChanged: _toggleSubtitleVisibility,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _toggleSubtitleVisibility(bool value) async {
+    final storageService = context.read<StorageService>();
+    await storageService.saveSubtitleVisible(value);
+    setState(() {
+      _subtitleVisible = value;
     });
   }
 
