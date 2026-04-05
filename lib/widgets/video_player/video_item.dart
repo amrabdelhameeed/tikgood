@@ -589,6 +589,13 @@ class VideoItemState extends State<VideoItem>
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
+        final videoHeight = _isNotesOpen ? screenH * 0.35 : screenH;
+        final renderedH = _renderedVideoHeight(screenW, videoHeight);
+        final barH = (videoHeight - renderedH) / 2;
+        final subtitleOffset = renderedH * 0.2;
+        final bottomPadding = _isLandscapeMode
+            ? 0.0
+            : (barH - subtitleOffset).clamp(0.0, double.infinity);
         _stableKey.currentState?.setSubtitlePadding(
           EdgeInsets.only(bottom: bottomPadding),
         );
@@ -609,15 +616,30 @@ class VideoItemState extends State<VideoItem>
           // ── LAYER 1: Bare video only — this is what PIP window shows ────────
           // PipWidget wraps ONLY the raw video, so the PIP window never
           // contains any UI overlays (nav bar, action buttons, gradients, etc.)
+
           PipWidget(
             pipLayout: PipActionsLayout.media_only_pause,
             onPipAction: _onPipAction,
             pipChild: _buildBareVideo(),
             child: ColoredBox(
               color: Colors.black,
-              child: _StableVideo(
-                key: _stableKey,
-                controller: _controller,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  AnimatedPositioned(
+                    duration: const Duration(milliseconds: 350),
+                    curve: Curves.easeOutSine,
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    // When notes open: shrink to 35% height; else fill screen
+                    bottom: _isNotesOpen ? screenH * 0.65 : 0,
+                    child: _StableVideo(
+                      key: _stableKey,
+                      controller: _controller,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
