@@ -64,7 +64,8 @@ class AppRouter {
                 context.go('/');
               }
             });
-            return const Scaffold(backgroundColor: Colors.black);
+            return const Scaffold(
+                resizeToAvoidBottomInset: false, backgroundColor: Colors.black);
           }
           return GoalMiddlewareScreen(
             onGoalSet: () => context.go('/'),
@@ -222,86 +223,95 @@ class ScaffoldWithNavBar extends StatelessWidget {
         },
         child: BlocBuilder<AppCubit, AppState>(builder: (context, state) {
           return Scaffold(
+            resizeToAvoidBottomInset: false,
             body: navigationShell,
-            bottomNavigationBar: state.isFullscreen ||
-                    state.isInPipMode ||
-                    state.isNotesOpened
-                ? null
-                : Container(
-                    color: Colors.black,
-                    child: SafeArea(
-                      top: false,
-                      child: Container(
-                        height: 60,
-                        decoration: const BoxDecoration(
-                          border: Border(
-                            top: BorderSide(color: Colors.white, width: 0.2),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            _NavItem(
-                              index: 0,
-                              currentIndex: navigationShell.currentIndex,
-                              icon: TikTokIcons.home,
-                              label: 'home'.tr(), // Localized
-                              onTap: () => _onNavTap(context, 0),
+            bottomNavigationBar: AnimatedSize(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+              child: (state.isFullscreen ||
+                      state.isInPipMode ||
+                      state.isNotesOpened)
+                  ? const SizedBox(width: double.infinity, height: 0)
+                  : Container(
+                      color: Colors.black,
+                      child: SafeArea(
+                        top: false,
+                        child: Container(
+                          height: 60,
+                          clipBehavior: Clip.hardEdge,
+                          decoration: const BoxDecoration(
+                            border: Border(
+                              top: BorderSide(color: Colors.white, width: 0.2),
                             ),
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: () => _onNavTap(context, 1),
-                                behavior: HitTestBehavior.opaque,
-                                child: SizedBox(
-                                  height: double.infinity,
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      _FollowingIcon(
-                                        isActive:
-                                            navigationShell.currentIndex == 1,
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        'following'.tr(), // Localized
-                                        style: TextStyle(
-                                          color: Colors.white.withOpacity(
-                                              navigationShell.currentIndex == 1
-                                                  ? 1.0
-                                                  : 0.5),
-                                          fontSize: 10,
-                                          fontWeight:
-                                              navigationShell.currentIndex == 1
-                                                  ? FontWeight.bold
-                                                  : FontWeight.normal,
+                          ),
+                          child: Row(
+                            children: [
+                              _NavItem(
+                                index: 0,
+                                currentIndex: navigationShell.currentIndex,
+                                icon: TikTokIcons.home,
+                                label: 'home'.tr(),
+                                onTap: () => _onNavTap(context, 0),
+                              ),
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () => _onNavTap(context, 1),
+                                  behavior: HitTestBehavior.opaque,
+                                  child: SizedBox(
+                                    height: double.infinity,
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        _FollowingIcon(
+                                          isActive:
+                                              navigationShell.currentIndex == 1,
                                         ),
-                                      ),
-                                    ],
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'following'.tr(),
+                                          style: TextStyle(
+                                            color: Colors.white.withOpacity(
+                                                navigationShell.currentIndex ==
+                                                        1
+                                                    ? 1.0
+                                                    : 0.5),
+                                            fontSize: 10,
+                                            fontWeight:
+                                                navigationShell.currentIndex ==
+                                                        1
+                                                    ? FontWeight.bold
+                                                    : FontWeight.normal,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                            _CustomAddButton(
-                              onTap: () => _onNavTap(context, 2),
-                            ),
-                            _NavItem(
-                              index: 3,
-                              currentIndex: navigationShell.currentIndex,
-                              icon: TikTokIcons.messages,
-                              label: 'inbox'.tr(), // Localized
-                              onTap: () => _onNavTap(context, 3),
-                            ),
-                            _NavItem(
-                              index: 4,
-                              currentIndex: navigationShell.currentIndex,
-                              icon: TikTokIcons.profile,
-                              label: 'profile'.tr(), // Localized
-                              onTap: () => _onNavTap(context, 4),
-                            ),
-                          ],
+                              _CustomAddButton(
+                                onTap: () => _onNavTap(context, 2),
+                              ),
+                              _NavItem(
+                                index: 3,
+                                currentIndex: navigationShell.currentIndex,
+                                icon: TikTokIcons.messages,
+                                label: 'inbox'.tr(),
+                                onTap: () => _onNavTap(context, 3),
+                              ),
+                              _NavItem(
+                                index: 4,
+                                currentIndex: navigationShell.currentIndex,
+                                icon: TikTokIcons.profile,
+                                label: 'profile'.tr(),
+                                onTap: () => _onNavTap(context, 4),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
+            ),
           );
         }));
   }
@@ -476,6 +486,7 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,
