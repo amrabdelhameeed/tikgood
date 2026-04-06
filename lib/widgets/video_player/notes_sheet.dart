@@ -248,7 +248,9 @@ class _TikTokNotesSheetState extends State<TikTokNotesSheet> {
 
     return Container(
       padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom + 12,
+        bottom: View.of(context).viewInsets.bottom /
+                View.of(context).devicePixelRatio +
+            12,
         left: 12,
         right: 12,
         top: 8,
@@ -508,6 +510,7 @@ class _TikTokNotesSheetState extends State<TikTokNotesSheet> {
         pageBuilder: (_, __, ___) => GestureDetector(
           onTap: () => Navigator.pop(context),
           child: Scaffold(
+            resizeToAvoidBottomInset: false,
             backgroundColor: Colors.transparent,
             body: Center(
               child: Hero(

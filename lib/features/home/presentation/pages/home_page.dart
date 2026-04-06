@@ -115,6 +115,7 @@ class _HomePageState extends State<HomePage> {
         durationUntilAlertAgain: const Duration(days: 1),
       ),
       child: Scaffold(
+        resizeToAvoidBottomInset: false,
         key: _scaffoldKey,
         backgroundColor: Colors.black,
         extendBodyBehindAppBar: true,
