@@ -4,15 +4,23 @@ on:
   push:
     branches:
       - "**"
+  # Manual trigger from GitHub UI — no commit needed
+  workflow_dispatch:
+    inputs:
+      version_override:
+        description: "Build number to use (e.g. 9). Leave blank to read from pubspec.yaml."
+        required: false
 
+# Required for GITHUB_TOKEN to create releases and upload assets
 permissions:
   contents: write
 
 jobs:
-  build_release:
-    if: contains(github.event.head_commit.message, 'build release')
+  # ─── Job 1: Lint & Test ──────────────────────────────────────────────────
+  analyze:
+    name: Lint & Analyze
+    if: startsWith(github.event.head_commit.message, 'release:') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -31,44 +39,71 @@ jobs:
           channel: "stable"
           cache: true
 
-      # Cache pub packages separately — flutter-action's built-in pub cache
-      # uses a key that includes a hash of pubspec.lock, so it misses often.
-      # This one is more reliable.
-      - name: Cache pub packages
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.pub-cache
-          key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
-          restore-keys: |
-            pub-${{ runner.os }}-
+      - name: Install dependencies
+        run: flutter pub get
+        continue-on-error: true
 
-      # Gradle's own cache (separate from setup-java's wrapper cache)
-      - name: Cache Gradle build cache
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-            ~/.android/build-cache
-          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            gradle-${{ runner.os }}-
+      - name: Analyze (lint)
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+        continue-on-error: true
+  # ─── Job 2: Build ─────────────────────────────────────────────────────────
+  build:
+    name: Build APKs
+    needs: analyze
+    if: always()
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.versioning.outputs.version }}
+      build_number: ${{ steps.versioning.outputs.build_number }}
+      changelog: ${{ steps.changelog.outputs.changelog }}
 
-      # Cache the Android SDK packages that get auto-installed during build
-      # (NDK, CMake, Platform 33 — all downloaded fresh each run otherwise)
-      - name: Cache Android SDK components
-        uses: actions/cache@v5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
         with:
-          path: |
-            /usr/local/lib/android/sdk/ndk
-            /usr/local/lib/android/sdk/cmake
-            /usr/local/lib/android/sdk/platforms
-          key: android-sdk-${{ runner.os }}-ndk27-cmake3221-api33
-          # Static key — only change it when you intentionally upgrade these
+          fetch-depth: 20 # needed for git log changelog
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+          cache: "gradle"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.32.2"
+          channel: "stable"
+          cache: true
 
       - name: Install dependencies
         run: flutter pub get
+
+      # Parse version and build number directly from pubspec.yaml
+      # e.g. "version: 1.4.2+8" → VERSION=1.4.2  BUILD_NUM=8
+      - name: Resolve version from pubspec.yaml
+        id: versioning
+        run: |
+          if [ -n "${{ github.event.inputs.version_override }}" ]; then
+            BUILD_NUM="${{ github.event.inputs.version_override }}"
+            VERSION="${BUILD_NUM}.0.0"
+          else
+            RAW=$(grep '^version:' pubspec.yaml | head -1 | awk '{print $2}')
+            VERSION=$(echo "$RAW" | cut -d'+' -f1)
+            BUILD_NUM=$(echo "$RAW" | cut -d'+' -f2)
+          fi
+          echo "build_number=${BUILD_NUM}" >> $GITHUB_OUTPUT
+          echo "version=${VERSION}"        >> $GITHUB_OUTPUT
+          echo "Resolved: v${VERSION} (build ${BUILD_NUM})"
+
+      # Auto-generate changelog from last 10 commits
+      - name: Generate changelog
+        id: changelog
+        run: |
+          LOG=$(git log --oneline -10 --no-merges --pretty=format:"- %s" 2>/dev/null || echo "- Initial release")
+          LOG="${LOG//$'\n'/'%0A'}"
+          echo "changelog=${LOG}" >> $GITHUB_OUTPUT
 
       - name: Decode Keystore
         run: |
@@ -80,29 +115,139 @@ jobs:
           storeFile=../upload-keystore.jks
           EOF
 
-      - name: Build APKs
+      - name: Build release APKs
         run: |
-          for VERSION in 7 8; do
-            flutter build apk --release \
-              --target-platform android-arm64,android-x64 \
-              --split-per-abi \
-              --build-name=${VERSION}.0.0 \
-              --build-number=${VERSION}
+          BUILD_NUM="${{ steps.versioning.outputs.build_number }}"
+          VERSION="${{ steps.versioning.outputs.version }}"
 
-            mv build/app/outputs/flutter-apk/app-arm64-v8a-release.apk \
-               build/app/outputs/flutter-apk/tikgood-v${VERSION}-arm64.apk
-               
-            mv build/app/outputs/flutter-apk/app-x86_64-release.apk \
-               build/app/outputs/flutter-apk/tikgood-v${VERSION}-x64.apk
-          done
+          flutter build apk --release \
+            --target-platform android-arm64,android-x64 \
+            --split-per-abi \
+            --build-name="${VERSION}" \
+            --build-number="${BUILD_NUM}" \
+            --dart-define=BUILD_DATE=$(date +%Y%m%d) \
+            --dart-define=BUILD_SHA="${{ github.sha }}"
 
-      - name: Create GitHub Release and Upload APKs
+          OUT=build/app/outputs/flutter-apk
+
+          mv "${OUT}/app-arm64-v8a-release.apk" "${OUT}/tikgood-v${BUILD_NUM}-arm64.apk"
+          mv "${OUT}/app-x86_64-release.apk"    "${OUT}/tikgood-v${BUILD_NUM}-x64.apk"
+
+          cd "${OUT}"
+          sha256sum tikgood-v${BUILD_NUM}-arm64.apk > tikgood-v${BUILD_NUM}-arm64.apk.sha256
+          sha256sum tikgood-v${BUILD_NUM}-x64.apk   > tikgood-v${BUILD_NUM}-x64.apk.sha256
+
+      - name: Upload APK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: apks-${{ steps.versioning.outputs.build_number }}
+          path: build/app/outputs/flutter-apk/tikgood-*.apk*
+          retention-days: 7
+
+  # ─── Job 3: Release ───────────────────────────────────────────────────────
+  release:
+    name: Publish GitHub Release
+    needs: build
+    if: always() && needs.build.result == 'success'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download APK artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: apks-${{ needs.build.outputs.build_number }}
+          path: apks/
+
+      - name: Create GitHub Release and upload APKs
         uses: ncipollo/release-action@v1
         with:
-          tag: rel-${{ github.sha }}
-          name: TikGood Release ${{ github.sha }}
+          tag: v${{ needs.build.outputs.version }}
+          name: "TikGood v${{ needs.build.outputs.version }}"
           allowUpdates: true
           body: |
-            Automated build release from commit: ${{ github.event.head_commit.message }}
-          artifacts: "build/app/outputs/flutter-apk/tikgood-*.apk"
+            ## TikGood v${{ needs.build.outputs.version }}
+
+            **Commit:** `${{ github.sha }}`
+            **Branch:** `${{ github.ref_name }}`
+            **Built:** ${{ github.event.head_commit.timestamp }}
+
+            ### Changes
+            ${{ needs.build.outputs.changelog }}
+
+            ### Downloads
+            | APK | Architecture |
+            |-----|-------------|
+            | `tikgood-v${{ needs.build.outputs.build_number }}-arm64.apk` | arm64-v8a (most modern devices) |
+            | `tikgood-v${{ needs.build.outputs.build_number }}-x64.apk` | x86_64 (emulators, some tablets) |
+
+            > SHA-256 checksum files are included alongside each APK.
+          artifacts: "apks/tikgood-*.apk,apks/tikgood-*.sha256"
           token: ${{ github.token }}
+
+  # ─── Job 4: Email on success ──────────────────────────────────────────────
+  notify_success:
+    name: Email — success
+    needs: [build, release]
+    if: always() && needs.build.result == 'success' && needs.release.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send success email
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.EMAIL_USER }}
+          password: ${{ secrets.EMAIL_PASS }}
+          to: ${{ secrets.EMAIL_RECEIVER }}
+          from: "TikGood CI <${{ secrets.EMAIL_USER }}>"
+          subject: "✅ TikGood v${{ needs.build.outputs.version }} released"
+          html_body: |
+            <h2 style="color:#1a1a1a">TikGood v${{ needs.build.outputs.version }} — build succeeded</h2>
+            <table style="border-collapse:collapse;font-family:sans-serif;font-size:14px">
+              <tr><td style="padding:4px 12px 4px 0;color:#666">Version</td><td><strong>v${{ needs.build.outputs.version }}</strong></td></tr>
+              <tr><td style="padding:4px 12px 4px 0;color:#666">Build number</td><td>${{ needs.build.outputs.build_number }}</td></tr>
+              <tr><td style="padding:4px 12px 4px 0;color:#666">Branch</td><td>${{ github.ref_name }}</td></tr>
+              <tr><td style="padding:4px 12px 4px 0;color:#666">Commit</td><td><code>${{ github.sha }}</code></td></tr>
+              <tr><td style="padding:4px 12px 4px 0;color:#666">Built at</td><td>${{ github.event.head_commit.timestamp }}</td></tr>
+            </table>
+            <h3 style="color:#1a1a1a;margin-top:20px">Changes</h3>
+            <pre style="background:#f5f5f5;padding:12px;border-radius:6px;font-size:13px">${{ needs.build.outputs.changelog }}</pre>
+            <p style="margin-top:20px">
+              <a href="https://github.com/${{ github.repository }}/releases/tag/v${{ needs.build.outputs.version }}"
+                 style="background:#1a1a1a;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;font-family:sans-serif;font-size:14px">
+                View Release &amp; Download APKs
+              </a>
+            </p>
+
+  # ─── Job 5: Email on failure ──────────────────────────────────────────────
+  notify_failure:
+    name: Email — failure
+    needs: [analyze, build, release]
+    if: always() && (needs.build.result == 'failure' || needs.release.result == 'failure')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send failure email
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.EMAIL_USER }}
+          password: ${{ secrets.EMAIL_PASS }}
+          to: ${{ secrets.EMAIL_RECEIVER }}
+          from: "TikGood CI <${{ secrets.EMAIL_USER }}>"
+          subject: "❌ TikGood build failed — ${{ github.ref_name }}"
+          html_body: |
+            <h2 style="color:#c0392b">TikGood build failed</h2>
+            <table style="border-collapse:collapse;font-family:sans-serif;font-size:14px">
+              <tr><td style="padding:4px 12px 4px 0;color:#666">Branch</td><td>${{ github.ref_name }}</td></tr>
+              <tr><td style="padding:4px 12px 4px 0;color:#666">Commit</td><td><code>${{ github.sha }}</code></td></tr>
+              <tr><td style="padding:4px 12px 4px 0;color:#666">Triggered by</td><td>${{ github.actor }}</td></tr>
+            </table>
+            <p style="margin-top:20px">
+              <a href="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                 style="background:#c0392b;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;font-family:sans-serif;font-size:14px">
+                View Failed Run
+              </a>
+            </p>
