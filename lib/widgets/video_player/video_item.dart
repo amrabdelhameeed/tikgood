@@ -574,7 +574,7 @@ class VideoItemState extends State<VideoItem>
 
   void _closeNotesSheet() {
     if (_isNotesOpen) {
-      Navigator.of(context).pop();
+      Navigator.of(context, rootNavigator: true).maybePop();
       setState(() => _isNotesOpen = false);
     }
   }
@@ -1204,27 +1204,33 @@ class VideoItemState extends State<VideoItem>
     context.read<AppCubit>().toggleNotes(value: true);
     setState(() => _isNotesOpen = true);
     showModalBottomSheet(
+      useSafeArea: false,
+      isScrollControlled: true,
       context: context,
       isDismissible: true,
-      isScrollControlled: true,
       enableDrag: true,
-      useRootNavigator: false,
+      useRootNavigator: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.transparent,
-      builder: (context) => TikTokNotesSheet(
-        onPickingMedia: (isPicking) => _isPickingMedia = isPicking,
-        video: widget.video,
-        currentTimestamp: _player.state.position.inSeconds,
-        onSeek: (timestamp) {
-          _player.seek(Duration(seconds: timestamp));
-        },
-        onCaptureFrame: _captureFrame,
-        onAddNote: (type, content) => context.read<AppCubit>().addNote(
-              videoId: widget.video.id,
-              timestamp: _player.state.position.inSeconds,
-              type: type,
-              content: content,
-            ),
+      builder: (context) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(
+          viewInsets: EdgeInsets.zero,
+        ),
+        child: TikTokNotesSheet(
+          onPickingMedia: (isPicking) => _isPickingMedia = isPicking,
+          video: widget.video,
+          currentTimestamp: _player.state.position.inSeconds,
+          onSeek: (timestamp) {
+            _player.seek(Duration(seconds: timestamp));
+          },
+          onCaptureFrame: _captureFrame,
+          onAddNote: (type, content) => context.read<AppCubit>().addNote(
+                videoId: widget.video.id,
+                timestamp: _player.state.position.inSeconds,
+                type: type,
+                content: content,
+              ),
+        ),
       ),
     ).then((_) {
       if (mounted) setState(() => _isNotesOpen = false);

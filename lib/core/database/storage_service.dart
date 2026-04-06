@@ -48,8 +48,15 @@ class StorageService {
   }
 
   // --- Notes ---
-  List<Note> getNotesForVideo(String videoId) =>
-      notesBox.values.where((n) => n.videoId == videoId).toList();
+  List<Note> getNotesForVideo(String videoId) {
+    final notes = notesBox.values.where((n) => n.videoId == videoId).toList();
+    notes.sort((a, b) {
+      final aTime = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final bTime = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return bTime.compareTo(aTime);
+    });
+    return notes;
+  }
 
   Future<void> addNote(Note note) async => await notesBox.put(note.id, note);
 
