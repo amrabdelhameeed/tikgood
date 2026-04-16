@@ -1,5 +1,13 @@
-# TikGood 📚 
-> **Version:** 0.0.1+1 (Beta)
+<p align="center">
+  <img src="assets/logo.png" width="150" alt="TikGood Logo" />
+</p>
+
+<h1 align="center">TikGood</h1>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Version-0.0.1%2B1--Beta-blue?style=for-the-badge" alt="Version" />
+  <img src="https://img.shields.io/badge/Platform-Android-green?style=for-the-badge&logo=android" alt="Platform" />
+</p>
 
 > **Take notes on videos — the way it should have always worked.** TikGood is a TikTok-style video player built specifically for course learners. Watch your videos and take timestamped notes in the same place, without ever pausing to switch apps. 
  
@@ -18,8 +26,26 @@ The traditional workflow for taking notes while watching a course video:
  
 TikGood collapses all of that into one screen. You watch, you note, you keep going. 
  
+---
+
+## 📸 Screenshots
+
+<p align="center">
+  <img src="screenshoots/home.png" width="48%" alt="Home Feed" />
+  <img src="screenshoots/notes.jpg" width="48%" alt="Notes Taking" />
+</p>
+
+<p align="center">
+  <img src="screenshoots/comments.jpg" width="48%" alt="Comments" />
+  <img src="screenshoots/pip.jpg" width="48%" alt="Picture in Picture" />
+</p>
+
+<p align="center">
+  <img src="screenshoots/drawer.jpg" width="48%" alt="Navigation Drawer" />
+  <img src="screenshoots/settings.jpg" width="48%" alt="Settings" />
+</p>
+
 --- 
- 
 ## ✨ Core Features 
  
 ### 📝 Timestamped Notes 
