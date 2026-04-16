@@ -1072,6 +1072,11 @@ class _SettingsPageState extends State<SettingsPage>
         'title': 'upcoming_widget'.tr(),
         'desc': 'upcoming_widget_desc'.tr()
       },
+      {
+        'icon': '🧠',
+        'title': 'upcoming_dopamine_reset'.tr(),
+        'desc': 'upcoming_dopamine_reset_desc'.tr()
+      },
     ];
 
     return features.asMap().entries.map((entry) {

@@ -12,7 +12,12 @@
           "package_name": "id.amrabdelhameed.tikgood"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "115578057899-mk7nt1nnmak6vlkdk2onnrhr428qc0u5.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBXMLJ5J9fVBq9TQmLRicUUcQSW5tZEe-Y"
@@ -20,7 +25,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "115578057899-mk7nt1nnmak6vlkdk2onnrhr428qc0u5.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

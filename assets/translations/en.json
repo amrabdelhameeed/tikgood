@@ -1,4 +1,4 @@
-﻿{
+{
   "5": "5",
   "8": "8",
   "10": "10",
@@ -1184,6 +1184,8 @@
   "upcoming_light_mode_desc": "Support for system and manual light themes",
   "upcoming_widget": "Home Screen Widget",
   "upcoming_widget_desc": "View current goal from home screen",
+  "upcoming_dopamine_reset": "Dopamine Reset Method",
+  "upcoming_dopamine_reset_desc": "Scientific approach to break phone addiction and rebuild focus",
   "settings_version_label": "Version",
   "settings_auto_save_info": "Auto save enabled",
   "settings_fetch_error": "Failed to fetch",

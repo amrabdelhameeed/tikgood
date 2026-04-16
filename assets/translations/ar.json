@@ -1,4 +1,4 @@
-﻿{
+{
   "(Based on the latest disclosure)": "(وفقًا لآخر إفصاح)",
   "1 Month": "شهر",
   "1 Week": "اسبوع",
@@ -1295,6 +1295,8 @@
   "upcoming_light_mode_desc": "دعم الوضع الفاتح اليدوي والنظامي",
   "upcoming_widget": "ودجة الشاشة الرئيسية",
   "upcoming_widget_desc": "عرض الهدف الحالي من الشاشة الرئيسية",
+  "upcoming_dopamine_reset": "طريقة إعادة ضبط الدوبامين",
+  "upcoming_dopamine_reset_desc": "نهج علمي للتغلب على إدمان الهاتف وإعادة بناء التركيز",
   "settings_version_label": "الإصدار",
   "settings_auto_save_info": "الحفظ التلقائي مفعل",
   "settings_fetch_error": "فشل في جلب الإعدادات",

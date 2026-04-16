@@ -99,7 +99,8 @@ Connect your Notion workspace to automatically mirror your notes:
 | 🌍 **Multi-language Support** | App localization for global users | 
 | 🌙 **Light Mode** | Support for system and manual light themes | 
 | ⚡ **TikTok UI Elements** | More interactive elements like the native TikTok interface | 
-| 📱 **Home Screen Widget** | Add widget support to view current goal from home screen | 
+| 📱 **Home Screen Widget** | Add widget support to view current goal from home screen |
+| 🧠 **Dopamine Reset Method** | Scientific approach to break phone addiction and rebuild focus | 
  
 --- 
  
