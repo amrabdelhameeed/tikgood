@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tikgood/features/courses/data/datasources/video_service.dart';
 import 'package:tikgood/features/courses/data/models/video.dart';
-import 'package:tikgood/features/courses/data/models/video.dart';
 import 'package:uuid/uuid.dart';
 import '../../../notes/data/models/note.dart';
 import '../../../../core/database/storage_service.dart';
@@ -32,24 +31,18 @@ class AppCubit extends Cubit<AppState> {
     if (_isLoadingData) return;
     _isLoadingData = true;
     try {
-      final courses = _storage.getCourses();
-
       final lastVideoId = _storage.getLastViewedVideoId();
       final lastTimestamp = _storage.getLastViewedTimestamp();
 
-      final videos = <Video>[];
-      for (final course in courses) {
-        videos.addAll(_storage.getVideosForCourse(course.id));
-      }
-      videos.shuffle();
-
       emit(state.copyWith(
-        courses: courses,
+        courses: List.unmodifiable(_storage.getCourses()),
         isLoading: false,
-        videoFeed: List.unmodifiable(videos),
         targetVideoId: lastVideoId,
         targetTimestamp: lastTimestamp,
       ));
+      // Build the feed through the same filtered path as everything else,
+      // so the Following tab never shows unfollowed courses on cold start.
+      _updateFeed();
     } catch (e) {
       debugPrint('loadInitialData error: $e');
       emit(state.copyWith(isLoading: false));
@@ -61,10 +54,13 @@ class AppCubit extends Cubit<AppState> {
   // ── Feed ─────────────────────────────────────────────────────────
 
   void _updateFeed() {
+    // Always re-read courses from storage so follow/unfollow state
+    // can never go stale in memory.
+    final courses = _storage.getCourses();
     final videos = <Video>[];
 
     if (state.isFollowingTab) {
-      for (final course in state.courses) {
+      for (final course in courses) {
         if (course.isFollowed) {
           videos.addAll(_storage.getVideosForCourse(course.id));
         }
@@ -74,13 +70,16 @@ class AppCubit extends Cubit<AppState> {
         return p != 0 ? p : a.name.compareTo(b.name);
       });
     } else {
-      for (final course in state.courses) {
+      for (final course in courses) {
         videos.addAll(_storage.getVideosForCourse(course.id));
       }
       videos.shuffle();
     }
 
-    emit(state.copyWith(videoFeed: List.unmodifiable(videos)));
+    emit(state.copyWith(
+      courses: List.unmodifiable(courses),
+      videoFeed: List.unmodifiable(videos),
+    ));
   }
 
   void switchToFollowing() {

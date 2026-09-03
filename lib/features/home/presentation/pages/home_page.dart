@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:easy_localization/easy_localization.dart';
 import 'package:upgrader/upgrader.dart';
 import '../../../../widgets/video_player/video_feed_view.dart';
 import '../../../../widgets/course_content_drawer.dart';
@@ -148,9 +147,15 @@ class _HomePageState extends State<HomePage> {
             final lastViewedVideoId =
                 context.read<StorageService>().getLastViewedVideoId();
 
+            // In the Following tab the drawer mirrors the feed: only
+            // followed courses, in the same order as the feed.
+            final drawerCourses = state.isFollowingTab
+                ? state.courses.where((c) => c.isFollowed).toList()
+                : state.courses;
+
             return CourseContentDrawer(
               videos: state.videoFeed,
-              courses: state.courses,
+              courses: drawerCourses,
               currentVideoId: currentVideoId,
               lastViewedVideoId: lastViewedVideoId,
               onVideoSelected: (index) {

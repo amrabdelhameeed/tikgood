@@ -87,6 +87,14 @@ class VideoFeedViewState extends State<VideoFeedView> {
             });
           }
 
+          // Feed shrank (e.g. unfollow) while scrolled past its end →
+          // clamp back to a valid page instead of showing a stale video.
+          if (videos.isNotEmpty && _currentIndex >= videos.length) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) animateToVideo(videos.length - 1);
+            });
+          }
+
           return Stack(
             children: [
               videos.isEmpty
