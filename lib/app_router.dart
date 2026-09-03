@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:background_on_back/background_on_back.dart';
+import 'package:send_to_background/send_to_background.dart';
 import 'package:clarity_flutter/clarity_flutter.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_analytics/observer.dart'
@@ -218,7 +218,7 @@ class ScaffoldWithNavBar extends StatelessWidget {
             router.pop();
           } else {
             debugPrint('EXIT APP or send to background');
-            BackgroundOnBack.pop();
+            SendToBackground.sendToBackground();
           }
         },
         child: BlocBuilder<AppCubit, AppState>(builder: (context, state) {
