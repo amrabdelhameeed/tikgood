@@ -62,13 +62,18 @@ class AppCubit extends Cubit<AppState> {
     if (state.isFollowingTab) {
       for (final course in courses) {
         if (course.isFollowed) {
-          videos.addAll(_storage.getVideosForCourse(course.id));
+          final courseVideos = _storage.getVideosForCourse(course.id);
+          // Sort within each course so its videos stay grouped together,
+          // then keep the course grouping order. Sorting across all courses
+          // by subPath/name would interleave different courses' videos
+          // (they share identical subPaths like "01_intro.mp4").
+          courseVideos.sort((a, b) {
+            final p = (a.subPath ?? '').compareTo(b.subPath ?? '');
+            return p != 0 ? p : a.name.compareTo(b.name);
+          });
+          videos.addAll(courseVideos);
         }
       }
-      videos.sort((a, b) {
-        final p = (a.subPath ?? '').compareTo(b.subPath ?? '');
-        return p != 0 ? p : a.name.compareTo(b.name);
-      });
     } else {
       for (final course in courses) {
         videos.addAll(_storage.getVideosForCourse(course.id));
