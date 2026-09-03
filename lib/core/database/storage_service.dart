@@ -62,6 +62,38 @@ class StorageService {
 
   Future<void> deleteNote(String noteId) async => await notesBox.delete(noteId);
 
+  Future<void> updateNoteContent(String noteId, String newContent) async {
+    final note = notesBox.get(noteId);
+    if (note != null) {
+      note.content = newContent;
+      note.isSyncedWithNotion = false;
+      await note.save();
+    }
+  }
+
+  /// Deletes a course and all its associated data (videos, notes, liked videos).
+  Future<void> deleteCourse(String courseId) async {
+    // Delete all videos for this course
+    final videoIds = <String>[];
+    for (final video in videosBox.values.where((v) => v.courseId == courseId)) {
+      videoIds.add(video.id);
+      await video.delete();
+    }
+
+    // Delete all notes for those videos
+    for (final note in notesBox.values.where((n) => videoIds.contains(n.videoId))) {
+      await note.delete();
+    }
+
+    // Delete liked video entries for those videos
+    for (final liked in likedVideosBox.values.where((l) => videoIds.contains(l.videoId))) {
+      await liked.delete();
+    }
+
+    // Delete the course itself
+    await coursesBox.delete(courseId);
+  }
+
   List<Note> getUnsyncedNotes() =>
       notesBox.values.where((n) => !n.isSyncedWithNotion).toList();
 
@@ -118,6 +150,19 @@ class StorageService {
       settingsBox.get('cloudinary_upload_preset');
   Future<void> saveCloudinaryUploadPreset(String preset) async =>
       await settingsBox.put('cloudinary_upload_preset', preset);
+
+  // --- Settings: Cloudinary signed uploads (API key + secret) ---
+  // NOTE: embedding the API secret in a client app means it can be
+  // extracted from the binary. Fine for a personal app, but for a
+  // public Play Store release use a backend signer instead.
+  String? getCloudinaryApiKey() => settingsBox.get('cloudinary_api_key');
+  Future<void> saveCloudinaryApiKey(String key) async =>
+      await settingsBox.put('cloudinary_api_key', key);
+
+  String? getCloudinaryApiSecret() =>
+      settingsBox.get('cloudinary_api_secret');
+  Future<void> saveCloudinaryApiSecret(String secret) async =>
+      await settingsBox.put('cloudinary_api_secret', secret);
 
   // --- Settings: Subtitle visibility ---
   bool getSubtitleVisible() => settingsBox.get('subtitle_visible') ?? true;

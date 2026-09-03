@@ -5,14 +5,22 @@
     <uses-permission android:name="android.permission.VIBRATE"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
 
-    <!-- ✅ For overlay dialog over TikTok -->
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <!-- Android 11+ (API 30+) full file-system access -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+
+    <!-- NOTE (Google Play version): SYSTEM_ALERT_WINDOW overlay permission
+         and TikTokInterceptService accessibility service are intentionally
+         removed to comply with Play policies. To build the full GitHub
+         version, use the default AndroidManifest.xml instead of this file:
+         copy AndroidManifest_PLAY_VERSION.xml over AndroidManifest.xml
+         is NOT needed — default IS the GitHub version. Do the reverse:
+         copy this file over AndroidManifest.xml for a Play-compliant build. -->
 
     <queries>
         <intent>
@@ -47,13 +55,13 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:showWhenLocked="true"
+            android:showWhenLocked="false"
             android:turnScreenOn="true"
             android:launchMode="singleTop"
             android:theme="@style/LaunchTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
-            android:windowSoftInputMode="adjustResize"
+            android:windowSoftInputMode="adjustNothing"
             android:supportsPictureInPicture="true">
 
             <meta-data
@@ -65,19 +73,6 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-
-        <!-- ✅ TikTok intercept accessibility service -->
-        <service
-            android:name="id.amrabdelhameed.tikgood.TikTokInterceptService"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService"/>
-            </intent-filter>
-            <meta-data
-                android:name="android.accessibilityservice"
-                android:resource="@xml/accessibility_service_config"/>
-        </service>
 
     </application>
 </manifest>

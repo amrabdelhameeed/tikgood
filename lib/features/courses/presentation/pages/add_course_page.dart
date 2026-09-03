@@ -75,9 +75,11 @@ class _AddCoursePageState extends State<AddCoursePage> {
               GestureDetector(
                 onTap: state.isLoading
                     ? null
-                    : () {
-                        _pickDirectory(context);
-                        AppRouter.router.go('/');
+                    : () async {
+                        await _pickDirectory(context);
+                        if (context.mounted) {
+                          AppRouter.router.go('/');
+                        }
                       },
                 child: Container(
                   height: 160,

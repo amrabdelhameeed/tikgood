@@ -2,9 +2,9 @@ import 'dart:convert';
 import 'dart:io';
 // import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
 // import 'package:ffmpeg_kit_flutter_new/return_code.dart';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart' show getTemporaryDirectory;
 import 'package:tikgood/features/notes/data/models/note.dart';
 // import 'package:whisper_flutter_new/whisper_flutter_new.dart';
 import '../../../../core/database/storage_service.dart';
@@ -35,6 +35,19 @@ class NotionService {
         'Content-Type': 'application/json',
       };
 
+  /// Safely extracts Notion's error message. A failed response is not always
+  /// JSON (proxy/HTML/network errors) — indexing ['message'] directly would
+  /// throw and mask the real failure.
+  String _notionError(http.Response res) {
+    try {
+      final body = jsonDecode(res.body);
+      if (body is Map && body['message'] is String) {
+        return body['message'] as String;
+      }
+    } catch (_) {}
+    return 'HTTP ${res.statusCode}';
+  }
+
   // ── Fetch pages for setup picker ──────────────────────────────────────────
 
   Future<List<Map<String, String>>> fetchPages(String apiKey) async {
@@ -57,7 +70,7 @@ class NotionService {
         return {'id': p['id'] as String, 'title': title as String};
       }).toList();
     }
-    throw Exception(jsonDecode(res.body)['message']);
+    throw Exception(_notionError(res));
   }
 
   // ── Get or create a child page ────────────────────────────────────────────
@@ -121,7 +134,7 @@ class NotionService {
       return id;
     }
     throw Exception(
-        'Failed to create page "$title": ${jsonDecode(create.body)['message']}');
+        'Failed to create page "$title": ${_notionError(create)}');
   }
 
   // ── Append blocks to a page ───────────────────────────────────────────────
@@ -137,8 +150,7 @@ class NotionService {
       body: jsonEncode({'children': blocks}),
     );
     if (res.statusCode == 200) return true;
-    final err = jsonDecode(res.body);
-    debugPrint('appendBlocks failed [${res.statusCode}]: ${err['message']}');
+    debugPrint('appendBlocks failed [${res.statusCode}]: ${_notionError(res)}');
     return false;
   }
 
@@ -282,8 +294,7 @@ class NotionService {
       debugPrint('NotionService: created toggle for "$videoName" = $id');
       return id;
     }
-    throw Exception(
-        'Failed to create toggle: ${jsonDecode(createRes.body)['message']}');
+    throw Exception('Failed to create toggle: ${_notionError(createRes)}');
   }
 
   // ── Notion block helpers ──────────────────────────────────────────────────
@@ -380,24 +391,43 @@ class NotionService {
                 String content = note.content;
 
                 // ── Resolve local paths to remote URLs before building blocks ──
+                // If an upload fails we skip the note (counted as failed).
+                // Sending a local file path as a Notion external URL would
+                // make Notion reject the whole batch append.
 
                 if (note.type == 'image' && !content.startsWith('http')) {
                   final url = await _uploadImage(content);
-                  if (url != null) content = url;
+                  if (url == null) {
+                    debugPrint('Skipping image note ${note.id}: upload failed');
+                    failed++;
+                    continue;
+                  }
+                  content = url;
                 }
 
                 if (note.type == 'image_text') {
                   final (imgPath, caption) = _decodeImageText(content);
                   if (imgPath.isNotEmpty && !imgPath.startsWith('http')) {
                     final url = await _uploadImage(imgPath);
+                    if (url == null) {
+                      debugPrint(
+                          'Skipping image_text note ${note.id}: upload failed');
+                      failed++;
+                      continue;
+                    }
                     // Re-encode with the uploaded URL (caption unchanged)
-                    content = '${url ?? imgPath}$_kSep$caption';
+                    content = '$url$_kSep$caption';
                   }
                 }
 
                 if (note.type == 'voice' && !content.startsWith('http')) {
                   final url = await _uploadVoice(content);
-                  if (url != null) content = url;
+                  if (url == null) {
+                    debugPrint('Skipping voice note ${note.id}: upload failed');
+                    failed++;
+                    continue;
+                  }
+                  content = url;
                   // content is now a CDN URL → _buildNoteBlocks will render it as audio
                 }
 
@@ -571,91 +601,103 @@ class NotionService {
 
   // OLD: ── Imgbb image upload ────────────────────────────────────────────────────
 
-  // ── Cloudinary upload — preserves original quality, no recompression ────────
-  // Cloud Name  : visible on your Cloudinary dashboard
+  // ── Cloudinary upload (SIGNED, manual REST) ───────────────────────────────
+  // Cloud Name / API Key / API Secret: Cloudinary Console → Settings → API Keys
   // Upload Preset: Settings → Upload → Upload presets → the NAME column
-  //   (NOT the UUID — use the short name like "ml_default" or whatever you set)
-  //   Make sure Signing Mode = Unsigned.
+  //   (NOT the UUID from the URL bar — use the short name, e.g. "TikGood").
+  //   Keep Signing Mode = Signed. The preset's Asset folder
+  //   (samples/ecommerce) applies automatically; no folder is forced here
+  //   so request params don't override the preset.
+  //
+  // Signed manually (timestamp in SECONDS + SHA-1 signature per
+  // https://cloudinary.com/documentation/upload_images#generating_authentication_signatures)
+  // instead of the `cloudinary` pub package, which sends millisecond
+  // timestamps that Cloudinary rejects (403).
+  //
+  // NOTE: the API secret lives in the app binary and can be extracted.
+  // Fine for a personal app; for a public release sign server-side instead.
 
-  Future<String?> _uploadImage(String localPath) async {
+  /// Generates a Cloudinary authentication signature: sort params
+  /// alphabetically, join as k=v&k=v, append api_secret, SHA-1 hex.
+  /// [params] must be exactly the fields sent (minus file/api_key/signature).
+  String _cloudinarySignature(Map<String, String> params, String apiSecret) {
+    final keys = params.keys.toList()..sort();
+    final base =
+        '${keys.map((k) => '$k=${params[k]}').join('&')}$apiSecret';
+    return sha1.convert(utf8.encode(base)).toString();
+  }
+
+  Future<String?> _signedUpload({
+    required String localPath,
+    required bool isVideo,
+  }) async {
     try {
       final file = File(localPath);
       if (!await file.exists()) return null;
 
-      final cloudName = _storage.getCloudinaryCloudName() ?? 'drsfitprd';
-      final uploadPreset = _storage.getCloudinaryUploadPreset() ?? 'TikGood';
-
-      if (cloudName.isEmpty || uploadPreset.isEmpty) {
-        debugPrint('Cloudinary credentials missing.');
+      final cloudName = _storage.getCloudinaryCloudName();
+      final apiKey = _storage.getCloudinaryApiKey();
+      final apiSecret = _storage.getCloudinaryApiSecret();
+      final preset = _storage.getCloudinaryUploadPreset();
+      if (cloudName == null ||
+          cloudName.isEmpty ||
+          apiKey == null ||
+          apiKey.isEmpty ||
+          apiSecret == null ||
+          apiSecret.isEmpty) {
+        debugPrint('Cloudinary signed credentials missing '
+            '(cloud name / API key / API secret).');
         return null;
       }
 
+      // Seconds, not milliseconds — Cloudinary rejects anything else.
+      final timestamp =
+          (DateTime.now().millisecondsSinceEpoch ~/ 1000).toString();
+      final paramsToSign = <String, String>{'timestamp': timestamp};
+      if (preset != null && preset.isNotEmpty) {
+        paramsToSign['upload_preset'] = preset;
+      }
+      final signature = _cloudinarySignature(paramsToSign, apiSecret);
+
+      // Audio lives under the 'video' resource type on Cloudinary.
+      final kind = isVideo ? 'video' : 'image';
       final request = http.MultipartRequest(
         'POST',
-        Uri.parse('https://api.cloudinary.com/v1_1/$cloudName/image/upload'),
-      );
-      // upload_preset must be the preset NAME (e.g. "tikgood_notes"),
-      // not the preset UUID shown in the URL bar.
-      request.fields['upload_preset'] = uploadPreset;
-      // Do NOT pass transformation on unsigned presets — it gets rejected.
-      request.files.add(await http.MultipartFile.fromPath('file', localPath));
+        Uri.parse('https://api.cloudinary.com/v1_1/$cloudName/$kind/upload'),
+      )
+        ..fields['api_key'] = apiKey
+        ..fields['timestamp'] = timestamp
+        ..fields['signature'] = signature
+        ..files.add(await http.MultipartFile.fromPath('file', localPath));
+      if (preset != null && preset.isNotEmpty) {
+        request.fields['upload_preset'] = preset;
+      }
 
       final streamed = await request.send();
       final res = await http.Response.fromStream(streamed);
 
-      debugPrint('Cloudinary response [${res.statusCode}]: ${res.body}');
-
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
-        // secure_url → direct CDN link, embeds correctly in Notion image blocks.
-        final url = data['secure_url'] as String?;
+        // secure_url → direct CDN link, embeds correctly in Notion blocks.
+        final url = (data is Map ? data['secure_url'] : null) as String?;
         debugPrint('Cloudinary upload OK: $url');
         return url;
       }
+      // Log Cloudinary's exact error body — it names the cause
+      // ("Invalid Signature", unknown preset, disabled key, ...).
+      debugPrint('Cloudinary upload failed [${res.statusCode}]: ${res.body}');
     } catch (e) {
-      debugPrint('Image upload error: $e');
+      debugPrint('Cloudinary upload error: $e');
     }
     return null;
   }
 
-// ── Upload voice to Cloudinary ──────────────────────────────────────────────
-  Future<String?> _uploadVoice(String localPath) async {
-    try {
-      final file = File(localPath);
-      if (!await file.exists()) return null;
+  Future<String?> _uploadImage(String localPath) =>
+      _signedUpload(localPath: localPath, isVideo: false);
 
-      final cloudName = _storage.getCloudinaryCloudName() ?? 'drsfitprd';
-      final uploadPreset = _storage.getCloudinaryUploadPreset() ?? 'TikGood';
-
-      if (cloudName.isEmpty || uploadPreset.isEmpty) {
-        debugPrint('Cloudinary credentials missing.');
-        return null;
-      }
-
-      final request = http.MultipartRequest(
-        'POST',
-        Uri.parse('https://api.cloudinary.com/v1_1/$cloudName/video/upload'),
-      );
-      request.fields['upload_preset'] = uploadPreset;
-      request.fields['resource_type'] = 'video'; // audio lives under 'video'
-      request.files.add(await http.MultipartFile.fromPath('file', localPath));
-
-      final streamed = await request.send();
-      final res = await http.Response.fromStream(streamed);
-
-      debugPrint('Cloudinary voice [${res.statusCode}]: ${res.body}');
-
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        final url = data['secure_url'] as String?;
-        debugPrint('Cloudinary voice OK: $url');
-        return url;
-      }
-    } catch (e) {
-      debugPrint('Voice upload error: $e');
-    }
-    return null;
-  }
+// ── Upload voice to Cloudinary (signed) ───────────────────────────────────
+  Future<String?> _uploadVoice(String localPath) =>
+      _signedUpload(localPath: localPath, isVideo: true);
 
   String _fmt(int total) {
     final m = (total ~/ 60).toString().padLeft(2, '0');

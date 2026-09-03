@@ -158,6 +158,27 @@ class _CourseProfilePageState extends State<CourseProfilePage> {
                 ),
               ),
             ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () => _confirmDelete(context, course),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Color(0xFFFF3B30)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                ),
+                child: const Text(
+                  'Delete Course',
+                  style: TextStyle(
+                    color: Color(0xFFFF3B30),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ),
             const SizedBox(height: 16),
             const Divider(color: Colors.white12),
           ],
@@ -228,6 +249,38 @@ class _CourseProfilePageState extends State<CourseProfilePage> {
   void _playVideo(BuildContext context, Video video, List<Video> allVideos) {
     context.push(
       '/video?path=${Uri.encodeComponent(video.filePath)}&name=${Uri.encodeComponent(video.name)}',
+    );
+  }
+
+  void _confirmDelete(BuildContext context, Course course) {
+    final videoCount = context.read<StorageService>().getVideosForCourse(course.id).length;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF2A2A2A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: const Text('Delete course?',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+        content: Text(
+          'This will permanently delete "${course.name}" and all $videoCount videos, notes, and bookmarks. This cannot be undone.',
+          style: const TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await context.read<AppCubit>().deleteCourse(course.id);
+              if (context.mounted) context.pop();
+            },
+            child: const Text('Delete',
+                style: TextStyle(color: Color(0xFFFF3B30), fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -44,11 +44,15 @@ class _SettingsPageState extends State<SettingsPage>
   late TextEditingController _dbIdController;
   late TextEditingController _cloudNameController;
   late TextEditingController _uploadPresetController;
+  late TextEditingController _cloudApiKeyController;
+  late TextEditingController _cloudApiSecretController;
 
   // Debounce timers for auto-save
   Timer? _apiKeyTimer;
   Timer? _cloudNameTimer;
   Timer? _uploadPresetTimer;
+  Timer? _cloudApiKeyTimer;
+  Timer? _cloudApiSecretTimer;
 
   // Save-indicator animation controllers
   late AnimationController _saveIndicatorCtrl;
@@ -90,6 +94,10 @@ class _SettingsPageState extends State<SettingsPage>
         TextEditingController(text: storage.getCloudinaryCloudName() ?? '');
     _uploadPresetController =
         TextEditingController(text: storage.getCloudinaryUploadPreset() ?? '');
+    _cloudApiKeyController =
+        TextEditingController(text: storage.getCloudinaryApiKey() ?? '');
+    _cloudApiSecretController =
+        TextEditingController(text: storage.getCloudinaryApiSecret() ?? '');
 
     // Save-indicator fade animation
     _saveIndicatorCtrl = AnimationController(
@@ -105,6 +113,8 @@ class _SettingsPageState extends State<SettingsPage>
     _apiKeyController.addListener(_onApiKeyChanged);
     _cloudNameController.addListener(_onCloudNameChanged);
     _uploadPresetController.addListener(_onUploadPresetChanged);
+    _cloudApiKeyController.addListener(_onCloudApiKeyChanged);
+    _cloudApiSecretController.addListener(_onCloudApiSecretChanged);
 
     _checkInterceptStatus();
 
@@ -123,6 +133,8 @@ class _SettingsPageState extends State<SettingsPage>
     _apiKeyTimer?.cancel();
     _cloudNameTimer?.cancel();
     _uploadPresetTimer?.cancel();
+    _cloudApiKeyTimer?.cancel();
+    _cloudApiSecretTimer?.cancel();
     _saveIndicatorCtrl.dispose();
     _apiKeyController
       ..removeListener(_onApiKeyChanged)
@@ -133,6 +145,12 @@ class _SettingsPageState extends State<SettingsPage>
       ..dispose();
     _uploadPresetController
       ..removeListener(_onUploadPresetChanged)
+      ..dispose();
+    _cloudApiKeyController
+      ..removeListener(_onCloudApiKeyChanged)
+      ..dispose();
+    _cloudApiSecretController
+      ..removeListener(_onCloudApiSecretChanged)
       ..dispose();
     super.dispose();
   }
@@ -172,9 +190,47 @@ class _SettingsPageState extends State<SettingsPage>
     });
   }
 
+  void _onCloudApiKeyChanged() {
+    _cloudApiKeyTimer?.cancel();
+    _cloudApiKeyTimer = Timer(_kDebounceDuration, () async {
+      final storage = context.read<StorageService>();
+      await storage.saveCloudinaryApiKey(_cloudApiKeyController.text.trim());
+      _flashSaved();
+    });
+  }
+
+  void _onCloudApiSecretChanged() {
+    _cloudApiSecretTimer?.cancel();
+    _cloudApiSecretTimer = Timer(_kDebounceDuration, () async {
+      final storage = context.read<StorageService>();
+      await storage
+          .saveCloudinaryApiSecret(_cloudApiSecretController.text.trim());
+      _flashSaved();
+    });
+  }
+
   void _flashSaved() {
     if (!mounted) return;
     setState(() => _showSaved = true);
+    // Visible "Saved" feedback for every auto-save.
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.check_rounded, color: _kCyan, size: 16),
+              const SizedBox(width: 8),
+              Text('settings_saved_message'.tr()),
+            ],
+          ),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 1),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
     _saveIndicatorCtrl.forward(from: 0).then((_) {
       Future.delayed(const Duration(seconds: 1), () {
         if (mounted) {
@@ -250,7 +306,18 @@ class _SettingsPageState extends State<SettingsPage>
               _buildField(
                   label: 'settings_upload_preset'.tr(),
                   controller: _uploadPresetController,
-                  hint: 'unsigned_preset'),
+                  hint: 'TikGood'),
+              _buildDivider(),
+              _buildField(
+                  label: 'settings_cloudinary_api_key'.tr(),
+                  controller: _cloudApiKeyController,
+                  hint: '123456789012345'),
+              _buildDivider(),
+              _buildField(
+                  label: 'settings_cloudinary_api_secret'.tr(),
+                  controller: _cloudApiSecretController,
+                  obscure: true,
+                  hint: '••••••••••'),
               _buildDivider(),
               _buildHelpLink(
                   url: _cloudinaryUploadPresetVideoUrl,
@@ -767,6 +834,7 @@ class _SettingsPageState extends State<SettingsPage>
     setState(() {
       _goalReminderEnabled = value;
     });
+    _flashSaved();
   }
 
   Widget _buildSubtitleVisibilityRow() {
@@ -824,6 +892,7 @@ class _SettingsPageState extends State<SettingsPage>
     setState(() {
       _subtitleVisible = value;
     });
+    _flashSaved();
   }
 
   /// TikTok-branded switch: cyan track when on, red thumb glow

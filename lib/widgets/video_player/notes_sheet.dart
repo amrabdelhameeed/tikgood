@@ -3,12 +3,14 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../features/courses/data/models/video.dart';
+import '../../features/notes/data/models/note.dart';
 import '../../features/home/presentation/bloc/app_cubit.dart';
 import '../../core/database/storage_service.dart';
 import '../../features/notes/data/datasources/notion_service.dart';
@@ -71,6 +73,18 @@ class _TikTokNotesSheetState extends State<TikTokNotesSheet> {
   String? _pendingImagePath;
   bool _pendingImageIsFrame = false;
 
+  /// Draft cache: keeps unsent comment text per video, so closing the
+  /// sheet (e.g. tapping the video) never loses what the user typed.
+  static final Map<String, String> _draftCache = {};
+
+  /// TikTok-style inline edit: id of the note being edited in the
+  /// sheet's own input bar (null = composing a new note).
+  String? _editingNoteId;
+
+  /// Draft stashed while an inline edit is in progress; restored after
+  /// the edit is saved or cancelled.
+  String? _stashedDraft;
+
   List<double> _amplitudeHistory = [];
   static const int _maxAmplitudeHistory = 30;
 
@@ -88,6 +102,8 @@ class _TikTokNotesSheetState extends State<TikTokNotesSheet> {
   @override
   void initState() {
     super.initState();
+    // Restore any unsent draft for this video.
+    _textController.text = _draftCache[widget.video.id] ?? '';
     _voicePlayer.stream.completed.listen((completed) {
       if (completed && mounted) setState(() => _playingVoicePath = null);
     });
@@ -96,7 +112,18 @@ class _TikTokNotesSheetState extends State<TikTokNotesSheet> {
         setState(() => _staticWaveHeights.shuffle());
       }
     });
-    _textController.addListener(() => setState(() {}));
+    _textController.addListener(() {
+      // While editing another note, don't overwrite the stashed draft.
+      if (_editingNoteId == null) {
+        final text = _textController.text;
+        if (text.isEmpty) {
+          _draftCache.remove(widget.video.id);
+        } else {
+          _draftCache[widget.video.id] = text;
+        }
+      }
+      setState(() {});
+    });
   }
 
   @override
@@ -144,7 +171,8 @@ class _TikTokNotesSheetState extends State<TikTokNotesSheet> {
                   alignment: Alignment.center,
                   children: [
                     Text(
-                      '${notes.length} notes',
+                      'notes_count'
+                          .tr(namedArgs: {'count': '${notes.length}'}),
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
@@ -178,6 +206,7 @@ class _TikTokNotesSheetState extends State<TikTokNotesSheet> {
                         itemBuilder: (context, i) => NoteItem(
                           note: notes[i],
                           isVoicePlaying: _playingVoicePath == notes[i].content,
+                          isEditing: _editingNoteId == notes[i].id,
                           onPlayVoice: () => _playVoiceNote(notes[i].content),
                           onDelete: () =>
                               context.read<AppCubit>().deleteNote(notes[i].id),
@@ -185,6 +214,7 @@ class _TikTokNotesSheetState extends State<TikTokNotesSheet> {
                               _showFullImage(context, path, notes[i].id),
                           onTapNote: () =>
                               widget.onSeek?.call(notes[i].timestamp),
+                          onEdit: () => _startEdit(notes[i]),
                         ),
                       ),
               ),
@@ -245,6 +275,7 @@ class _TikTokNotesSheetState extends State<TikTokNotesSheet> {
   Widget _buildInputBar() {
     final bool hasContent =
         _textController.text.trim().isNotEmpty || _pendingImagePath != null;
+    final bool isEditing = _editingNoteId != null;
 
     return Container(
       padding: EdgeInsets.only(
@@ -256,9 +287,46 @@ class _TikTokNotesSheetState extends State<TikTokNotesSheet> {
         top: 8,
       ),
       color: const Color(0xFF121212),
-      child: Row(
-        // crossAxisAlignment: CrossAxisAlignment.end,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
+          // ── TikTok-style editing banner ──────────────────────────────
+          if (isEditing)
+            Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFE2C55).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                    color: const Color(0xFFFE2C55).withOpacity(0.4)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.edit_rounded,
+                      color: Color(0xFFFE2C55), size: 16),
+                  const SizedBox(width: 8),
+                  Text(
+                    'notes_editing_label'.tr(),
+                    style: const TextStyle(
+                      color: Color(0xFFFE2C55),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: _cancelEdit,
+                    child: const Icon(Icons.close_rounded,
+                        color: Colors.white60, size: 18),
+                  ),
+                ],
+              ),
+            ),
+          Row(
+            // crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
           // Gallery / Image Picker Icon
           IconButton(
             onPressed: _pickImage,
@@ -294,9 +362,11 @@ class _TikTokNotesSheetState extends State<TikTokNotesSheet> {
                       maxLines: 4,
                       minLines: 1,
                       style: const TextStyle(color: Colors.white, fontSize: 15),
-                      decoration: const InputDecoration(
-                        hintText: 'Add a note...',
-                        hintStyle: TextStyle(color: Colors.white38),
+                      decoration: InputDecoration(
+                        hintText: isEditing
+                            ? 'notes_edit_hint'.tr()
+                            : 'notes_add_hint'.tr(),
+                        hintStyle: const TextStyle(color: Colors.white38),
                         border: InputBorder.none,
                       ),
                     ),
@@ -329,12 +399,16 @@ class _TikTokNotesSheetState extends State<TikTokNotesSheet> {
                 shape: BoxShape.circle,
               ),
               child: Icon(
-                Icons.arrow_upward_rounded,
+                isEditing
+                    ? Icons.check_rounded
+                    : Icons.arrow_upward_rounded,
                 color: hasContent ? Colors.white : Colors.white24,
                 size: 20,
               ),
             ),
           ),
+          ],
+        ),
         ],
       ),
     );
@@ -371,8 +445,9 @@ class _TikTokNotesSheetState extends State<TikTokNotesSheet> {
   }
 
   Widget _buildEmptyNotes() {
-    return const Center(
-      child: Text('No notes yet.', style: TextStyle(color: Colors.white38)),
+    return Center(
+      child: Text('notes_empty'.tr(),
+          style: const TextStyle(color: Colors.white38)),
     );
   }
   // ── actions ───────────────────────────────────────────────────────────────
@@ -408,8 +483,52 @@ class _TikTokNotesSheetState extends State<TikTokNotesSheet> {
     return (content.substring(0, idx), content.substring(idx + 1));
   }
 
+  /// TikTok-style inline edit: fills this sheet's own input bar with the
+  /// note's text instead of opening a dialog.
+  void _startEdit(Note note) {
+    if (note.type != 'text' && note.type != 'image_text') return;
+    _stashedDraft = _draftCache[widget.video.id];
+    final initial = note.type == 'image_text'
+        ? decodeImageText(note.content).$2
+        : note.content;
+    setState(() {
+      _editingNoteId = note.id;
+      _pendingImagePath = null;
+      _pendingImageIsFrame = false;
+      _textController.text = initial;
+    });
+    _focusNode.requestFocus();
+  }
+
+  void _cancelEdit() {
+    setState(() {
+      _editingNoteId = null;
+      _textController.text = _stashedDraft ?? '';
+      _stashedDraft = null;
+    });
+  }
+
   void _submitNote() {
     final text = _textController.text.trim();
+
+    // ── Save inline edit ───────────────────────────────────────────
+    if (_editingNoteId != null) {
+      if (text.isEmpty) return;
+      // Preserve the image part of combined 'image_text' notes.
+      var newContent = text;
+      final orig = context.read<StorageService>().notesBox.get(_editingNoteId!);
+      if (orig != null && orig.type == 'image_text') {
+        newContent = '${decodeImageText(orig.content).$1}$_sep$text';
+      }
+      context.read<AppCubit>().editNote(_editingNoteId!, newContent);
+      setState(() {
+        _editingNoteId = null;
+        _textController.text = _stashedDraft ?? '';
+        _stashedDraft = null;
+      });
+      return;
+    }
+
     final hasImage = _pendingImagePath != null;
     final hasText = text.isNotEmpty;
 
@@ -428,6 +547,7 @@ class _TikTokNotesSheetState extends State<TikTokNotesSheet> {
       _pendingImagePath = null;
       _pendingImageIsFrame = false;
     });
+    _draftCache.remove(widget.video.id);
     _textController.clear();
   }
 

@@ -466,6 +466,10 @@ class VideoItemState extends State<VideoItem>
   }
 
   void _togglePlayPause() {
+    if (_isNotesOpen) {
+      _closeNotesSheet();
+      return;
+    }
     _isPlaying ? _player.pause() : _player.play();
     setState(() => _showPlayPause = true);
     HapticFeedback.lightImpact();
@@ -491,11 +495,9 @@ class VideoItemState extends State<VideoItem>
   }
 
   void _onLongPressStart(LongPressStartDetails details) {
-    if (details.localPosition.dx > MediaQuery.of(context).size.width * 0.7) {
-      _player.setRate(2.0);
-      setState(() => _isSpeeding = true);
-      HapticFeedback.heavyImpact();
-    }
+    _player.setRate(2.0);
+    setState(() => _isSpeeding = true);
+    HapticFeedback.heavyImpact();
   }
 
   void _onLongPressEnd(LongPressEndDetails _) {

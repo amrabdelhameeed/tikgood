@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tikgood/features/courses/data/datasources/video_service.dart';
+import 'package:tikgood/features/courses/data/models/video.dart';
+import 'package:tikgood/features/courses/data/models/video.dart';
 import 'package:uuid/uuid.dart';
 import '../../../notes/data/models/note.dart';
 import '../../../../core/database/storage_service.dart';
@@ -12,6 +14,8 @@ class AppCubit extends Cubit<AppState> {
   final VideoService _videoService;
   final NotionService _notion;
   final _uuid = const Uuid();
+
+  bool _isLoadingData = false;
 
   AppCubit(this._storage, this._videoService, this._notion)
       : super(const AppState()) {
@@ -25,26 +29,39 @@ class AppCubit extends Cubit<AppState> {
   // ── Initial load ─────────────────────────────────────────────────
 
   Future<void> loadInitialData() async {
-    emit(state.copyWith(isLoading: true));
-    final courses = _storage.getCourses();
-    emit(state.copyWith(courses: courses, isLoading: false));
-    _updateFeed();
+    if (_isLoadingData) return;
+    _isLoadingData = true;
+    try {
+      final courses = _storage.getCourses();
 
-    // Restore last viewed video position on startup
-    final lastVideoId = _storage.getLastViewedVideoId();
-    final lastTimestamp = _storage.getLastViewedTimestamp();
-    if (lastVideoId != null) {
+      final lastVideoId = _storage.getLastViewedVideoId();
+      final lastTimestamp = _storage.getLastViewedTimestamp();
+
+      final videos = <Video>[];
+      for (final course in courses) {
+        videos.addAll(_storage.getVideosForCourse(course.id));
+      }
+      videos.shuffle();
+
       emit(state.copyWith(
+        courses: courses,
+        isLoading: false,
+        videoFeed: List.unmodifiable(videos),
         targetVideoId: lastVideoId,
-        targetTimestamp: lastTimestamp ?? 0,
+        targetTimestamp: lastTimestamp,
       ));
+    } catch (e) {
+      debugPrint('loadInitialData error: $e');
+      emit(state.copyWith(isLoading: false));
+    } finally {
+      _isLoadingData = false;
     }
   }
 
   // ── Feed ─────────────────────────────────────────────────────────
 
   void _updateFeed() {
-    final videos = <dynamic>[];
+    final videos = <Video>[];
 
     if (state.isFollowingTab) {
       for (final course in state.courses) {
@@ -53,9 +70,8 @@ class AppCubit extends Cubit<AppState> {
         }
       }
       videos.sort((a, b) {
-        final p = ((a.subPath ?? '') as String)
-            .compareTo((b.subPath ?? '') as String);
-        return p != 0 ? p : (a.name as String).compareTo(b.name as String);
+        final p = (a.subPath ?? '').compareTo(b.subPath ?? '');
+        return p != 0 ? p : a.name.compareTo(b.name);
       });
     } else {
       for (final course in state.courses) {
@@ -86,14 +102,32 @@ class AppCubit extends Cubit<AppState> {
   Future<void> addCourse(String path, {bool followByDefault = true}) async {
     emit(state.copyWith(isLoading: true));
     try {
+      // Skip if course already exists
+      final existingCourse = _storage.coursesBox.get(path);
+      if (existingCourse != null) {
+        existingCourse.isFollowed = followByDefault;
+        await existingCourse.save();
+        await loadInitialData();
+        return;
+      }
+
       final scannedCourses = await _videoService.scanDirectory(path);
+
+      // Build set of existing file paths for O(1) dedup
+      final existingPaths = <String>{
+        for (final v in _storage.videosBox.values) v.filePath,
+      };
+
       for (final course in scannedCourses) {
         course.isFollowed = followByDefault;
         await _storage.saveCourse(course);
 
         final videos = await _videoService.getVideosForCourse(course);
         for (final video in videos) {
-          await _storage.videosBox.put(video.id, video);
+          if (!existingPaths.contains(video.filePath)) {
+            await _storage.videosBox.put(video.id, video);
+            existingPaths.add(video.filePath);
+          }
         }
       }
       await loadInitialData();
@@ -104,10 +138,16 @@ class AppCubit extends Cubit<AppState> {
   }
 
   Future<void> setFollowCourse(String courseId, bool isFollowed) async {
-    final course = state.courses.firstWhere((c) => c.id == courseId);
+    final course = _storage.coursesBox.get(courseId);
+    if (course == null) return;
     course.isFollowed = isFollowed;
     await course.save();
     _updateFeed();
+  }
+
+  Future<void> deleteCourse(String courseId) async {
+    await _storage.deleteCourse(courseId);
+    await loadInitialData();
   }
 
   // ── Notes ────────────────────────────────────────────────────────
@@ -136,6 +176,11 @@ class AppCubit extends Cubit<AppState> {
 
   Future<void> deleteNote(String noteId) async {
     await _storage.deleteNote(noteId);
+    emit(state.copyWith()); // trigger UI rebuild
+  }
+
+  Future<void> editNote(String noteId, String newContent) async {
+    await _storage.updateNoteContent(noteId, newContent);
     emit(state.copyWith()); // trigger UI rebuild
   }
 
@@ -171,14 +216,15 @@ class AppCubit extends Cubit<AppState> {
   }
 
   void clearJumpTarget() {
-    // To clear the targets, we need to pass null to copyWith.
-    // But our copyWith uses ??, so passing null won't clear it.
-    // Let's create a new state instance with the values cleared.
     emit(AppState(
       courses: state.courses,
       videoFeed: state.videoFeed,
       isFollowingTab: state.isFollowingTab,
       isLoading: state.isLoading,
+      isFullscreen: state.isFullscreen,
+      isInPipMode: state.isInPipMode,
+      isNotesOpened: state.isNotesOpened,
+      currentNavIndex: state.currentNavIndex,
       targetVideoId: null,
       targetTimestamp: null,
     ));

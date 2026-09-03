@@ -1194,6 +1194,8 @@
   "settings_cloudinary_subtitle": "High-quality (image - audio) uploads for Notion",
   "settings_cloud_name": "Cloud Name",
   "settings_upload_preset": "Upload Preset",
+  "settings_cloudinary_api_key": "API Key",
+  "settings_cloudinary_api_secret": "API Secret",
   "settings_section_focus": "FOCUS",
   "settings_focus_subtitle": "Intercept TikTok and redirect here",
   "settings_intercept_title": "Intercept TikTok",
@@ -1329,5 +1331,12 @@
   "settings_section_subtitle": "تحكم في ظهور الترجمة علي الفيديو",
   "settings_subtitle_visibility_title": "ظهور الترجمة",
   "enabled": "مفعّل",
-  "disabled": "معطّل"
+  "disabled": "معطّل",
+  "settings_saved_message": "تم الحفظ ✓",
+  "settings_saved_label": "تم الحفظ",
+  "settings_required_hint": "مطلوب",
+  "notes_add_hint": "أضف ملاحظة...",
+  "notes_edit_hint": "عدّل ملاحظتك...",
+  "notes_editing_label": "جارٍ التعديل...",
+  "notes_count": "{count} ملاحظات"
 }

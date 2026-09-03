@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:easy_localization/easy_localization.dart'; // Added for .tr()
 import '../../../home/presentation/bloc/app_cubit.dart';
 import '../../../home/presentation/bloc/app_state.dart';
+import '../../../../core/database/storage_service.dart';
 import 'package:avatar_plus/avatar_plus.dart';
 
 class FavoritesPage extends StatelessWidget {
@@ -51,8 +52,10 @@ class FavoritesPage extends StatelessWidget {
 
               return Padding(
                 padding: const EdgeInsets.symmetric(vertical: 10),
-                child: Row(
-                  children: [
+                child: GestureDetector(
+                  onLongPress: () => _confirmDelete(context, course),
+                  child: Row(
+                    children: [
                     // --- Circular Avatar ---
                     GestureDetector(
                       onTap: () => context
@@ -102,6 +105,7 @@ class FavoritesPage extends StatelessWidget {
                     // --- TikTok Style Follow Button ---
                     _buildFollowButton(context, course.id, isFollowed),
                   ],
+                  ),
                 ),
               );
             },
@@ -135,6 +139,37 @@ class FavoritesPage extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
         ),
+      ),
+    );
+  }
+
+  void _confirmDelete(BuildContext context, dynamic course) {
+    final videoCount = context.read<StorageService>().getVideosForCourse(course.id).length;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF2A2A2A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: const Text('Delete course?',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+        content: Text(
+          'This will permanently delete "${course.name}" and all $videoCount videos, notes, and bookmarks.',
+          style: const TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.read<AppCubit>().deleteCourse(course.id);
+            },
+            child: const Text('Delete',
+                style: TextStyle(color: Color(0xFFFF3B30), fontWeight: FontWeight.w600)),
+          ),
+        ],
       ),
     );
   }

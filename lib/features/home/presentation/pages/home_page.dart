@@ -36,17 +36,19 @@ class _HomePageState extends State<HomePage> {
 
     bool isGranted = false;
 
-    // ✅ Correct permission logic
     if (sdkInt >= 33) {
+      // Android 13+: granular media permissions
       isGranted = await Permission.videos.isGranted;
+    } else if (sdkInt >= 30) {
+      // Android 11-12: MANAGE_EXTERNAL_STORAGE ("All Files Access")
+      isGranted = await Permission.manageExternalStorage.isGranted;
     } else {
+      // Android 10 and below
       isGranted = await Permission.storage.isGranted;
     }
 
-    // ✅ Stop if already granted
     if (isGranted) return;
 
-    // ✅ Show your custom dialog
     if (mounted) {
       _showRationaleDialog(sdkInt);
     }
@@ -77,28 +79,49 @@ class _HomePageState extends State<HomePage> {
 
     if (beginRequest != true) return;
 
-    Map<Permission, PermissionStatus> statuses = await [
-      if (sdkInt >= 33) Permission.videos,
-      if (sdkInt < 33) Permission.storage,
-    ].request();
+    // Request the correct permission for each Android version
+    Map<Permission, PermissionStatus> statuses = {};
+    if (sdkInt >= 33) {
+      // Android 13+: request granular media permissions
+      statuses = await [
+        Permission.videos,
+        Permission.photos,
+        Permission.audio,
+      ].request();
+    } else if (sdkInt >= 30) {
+      // Android 11-12: open the "All Files Access" system settings page
+      // (MANAGE_EXTERNAL_STORAGE cannot be requested via dialog)
+      await Permission.manageExternalStorage.request();
+      // Re-check after returning from settings
+      final granted = await Permission.manageExternalStorage.isGranted;
+      if (!granted && mounted) {
+        debugPrint("MANAGE_EXTERNAL_STORAGE still not granted");
+      }
+      return;
+    } else {
+      // Android 10 and below
+      statuses = await [
+        Permission.storage,
+      ].request();
+    }
 
-    // ✅ If permanently denied → open settings
+    // If permanently denied → open settings
     if (statuses.values.any((s) => s.isPermanentlyDenied)) {
       await openAppSettings();
       return;
     }
 
-    // ✅ Re-check after request to avoid dialog loop
+    // Re-check after request to avoid dialog loop
     bool grantedAfterRequest = false;
-
     if (sdkInt >= 33) {
       grantedAfterRequest = await Permission.videos.isGranted;
+    } else if (sdkInt >= 30) {
+      grantedAfterRequest = await Permission.manageExternalStorage.isGranted;
     } else {
       grantedAfterRequest = await Permission.storage.isGranted;
     }
 
     if (!grantedAfterRequest && mounted) {
-      // Optional: show again OR handle gracefully
       debugPrint("Permission still not granted");
     }
   }

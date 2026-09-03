@@ -14,7 +14,7 @@ class Note extends HiveObject {
   @HiveField(3)
   final String type; // text, voice, image, bookmark
   @HiveField(4)
-  final String content;
+  String content;
   @HiveField(5)
   bool isSyncedWithNotion;
   @HiveField(6)

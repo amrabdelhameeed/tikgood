@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 import '../../features/notes/data/models/note.dart';
 import 'package:avatar_plus/avatar_plus.dart';
 
@@ -22,21 +23,29 @@ class NoteItem extends StatelessWidget {
   final Note note;
   final bool isVoicePlaying;
   final bool isSyncing;
+  final bool isEditing;
   final VoidCallback onPlayVoice;
   final VoidCallback onDelete;
   final Function(String path) onShowImage;
   final VoidCallback? onTapNote;
+  final VoidCallback? onEdit;
 
   const NoteItem({
     required this.note,
     this.isVoicePlaying = false,
     this.isSyncing = false,
+    this.isEditing = false,
     required this.onPlayVoice,
     required this.onDelete,
     required this.onShowImage,
     this.onTapNote,
+    this.onEdit,
     super.key,
   });
+
+  /// Only text notes (and image captions) can be edited inline.
+  bool get _isEditable =>
+      onEdit != null && (note.type == 'text' || note.type == 'image_text');
 
   String _formatTimestamp(int seconds) {
     final m = seconds ~/ 60;
@@ -97,9 +106,19 @@ class NoteItem extends StatelessWidget {
       onDismissed: (_) => onDelete(),
       child: GestureDetector(
         onTap: onTapNote,
+        onLongPress: _isEditable ? onEdit : null,
         behavior: HitTestBehavior.opaque,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Container(
+          decoration: isEditing
+              ? BoxDecoration(
+                  color: const Color(0xFFFE2C55).withOpacity(0.07),
+                  border:
+                      Border.all(color: const Color(0xFFFE2C55), width: 1),
+                  borderRadius: BorderRadius.circular(12),
+                )
+              : null,
+          padding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -138,6 +157,35 @@ class NoteItem extends StatelessWidget {
                             timestamp: _formatTimestamp(note.timestamp)),
                         const SizedBox(width: 6),
                         _SyncBadge(isSynced: note.isSyncedWithNotion),
+                        if (isEditing) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFE2C55)
+                                  .withOpacity(0.18),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.edit_rounded,
+                                    size: 11,
+                                    color: Color(0xFFFE2C55)),
+                                const SizedBox(width: 2),
+                                Text(
+                                  'notes_editing_label'.tr(),
+                                  style: const TextStyle(
+                                    color: Color(0xFFFE2C55),
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                     const SizedBox(height: 5),
@@ -168,6 +216,12 @@ class NoteItem extends StatelessWidget {
                         //     fontWeight: FontWeight.w500,
                         //   ),
                         // ),
+                        if (_isEditable)
+                          GestureDetector(
+                            onTap: onEdit,
+                            child: const Icon(Icons.edit_outlined,
+                                color: Colors.white38, size: 17),
+                          ),
                         const Spacer(),
                         // const Icon(Icons.favorite_border_rounded,
                         //     color: Colors.white38, size: 17),
