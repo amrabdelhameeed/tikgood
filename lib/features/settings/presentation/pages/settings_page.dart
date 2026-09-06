@@ -74,8 +74,11 @@ class _SettingsPageState extends State<SettingsPage>
   static const String _cloudinaryUploadPresetVideoTitle =
       'How to create upload preset and get the cloud name';
 
-  // Set to false when uploading to Play Store
-  static const bool showFocusSection = false;
+  // Accessible on the default (GitHub) build, which includes the overlay
+  // permission and TikTokInterceptService accessibility service in the
+  // manifest. The Play Store manifest variant strips those — toggle then
+  // just opens Android settings with the service unavailable.
+  static const bool showFocusSection = true;
 
   static const String _githubRepoUrl =
       'https://github.com/amrabdelhameeed/tikgood';
