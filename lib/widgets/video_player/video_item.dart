@@ -286,9 +286,17 @@ class VideoItemState extends State<VideoItem>
     // defer their open until they actually become active, so the first
     // frame isn't blocked by a batch of synchronous libmpv opens — that
     // freeze made the feed unresponsive right after startup.
+    // Open media after the first frame. Deferring lets the feed lay out and
+    // start accepting scroll gestures before any libmpv native open runs —
+    // opening synchronously in initState froze startup scroll. Nearby cached
+    // pages additionally wait until they actually become active.
     if (widget.isActive) {
-      _mediaOpened = true;
-      _player.open(Media(widget.video.filePath));
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _disposed) return;
+        if (_mediaOpened) return;
+        _mediaOpened = true;
+        _player.open(Media(widget.video.filePath));
+      });
     }
 
     if (widget.initialTimestamp != null && widget.initialTimestamp! > 0) {

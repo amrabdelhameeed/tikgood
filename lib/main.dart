@@ -56,30 +56,18 @@ void main() async {
   final videoService = VideoService();
   await EasyLocalization.ensureInitialized();
 
-  // Goal Service
+  // Goal Service — boxes must be open before the first route renders
+  // (goal-middleware reads them). Cheap local Hive open, stays pre-frame.
   final goalService = GoalService();
   await goalService.init();
 
-  // Initialize goal notification channel
-  await GoalNotificationService.init(flutterLocalNotificationsPlugin);
+  // Construct services now (cheap constructors only); heavy init below is
+  // deferred until after the first frame so the feed renders and stays
+  // scrollable immediately on cold start.
   final goalNotificationService =
       GoalNotificationService(flutterLocalNotificationsPlugin);
-
-  // Notifications + Streak
-  await StreakService.initNotifications(flutterLocalNotificationsPlugin);
   final streakService =
       StreakService(storageService, flutterLocalNotificationsPlugin);
-  await streakService.checkAndUpdateStreak();
-
-  // Re-schedule reminder if it was enabled (survives restarts)
-  if (storageService.getReminderEnabled()) {
-    final parts = storageService.getReminderTime().split(':');
-    final time = TimeOfDay(
-      hour: int.parse(parts[0]),
-      minute: int.parse(parts[1]),
-    );
-    await streakService.scheduleReminder(time);
-  }
 
   runApp(
     EasyLocalization(
@@ -103,6 +91,30 @@ void main() async {
       ),
     ),
   );
+
+  // ── Deferred startup init ────────────────────────────────────────────
+  // Runs after the first frame so heavy/non-essential work (timezone DB
+  // load, notification channels, streak bookkeeping, permission prompt)
+  // never blocks the UI or the first scroll.
+  WidgetsBinding.instance.addPostFrameCallback((_) async {
+    try {
+      await GoalNotificationService.init(flutterLocalNotificationsPlugin);
+      await StreakService.initNotifications(flutterLocalNotificationsPlugin);
+      await streakService.checkAndUpdateStreak();
+
+      // Re-schedule reminder if it was enabled (survives restarts)
+      if (storageService.getReminderEnabled()) {
+        final parts = storageService.getReminderTime().split(':');
+        final time = TimeOfDay(
+          hour: int.parse(parts[0]),
+          minute: int.parse(parts[1]),
+        );
+        await streakService.scheduleReminder(time);
+      }
+    } catch (e) {
+      debugPrint('deferred startup init failed: $e');
+    }
+  });
 }
 
 class TikGoodApp extends StatelessWidget {
