@@ -280,8 +280,16 @@ class VideoItemState extends State<VideoItem>
       duration: const Duration(seconds: 5),
     )..repeat();
 
-    _player.open(Media(widget.video.filePath));
     _player.setPlaylistMode(PlaylistMode.loop);
+
+    // Open media only for the active (visible) video. Nearby cached pages
+    // defer their open until they actually become active, so the first
+    // frame isn't blocked by a batch of synchronous libmpv opens — that
+    // freeze made the feed unresponsive right after startup.
+    if (widget.isActive) {
+      _mediaOpened = true;
+      _player.open(Media(widget.video.filePath));
+    }
 
     if (widget.initialTimestamp != null && widget.initialTimestamp! > 0) {
       Future.delayed(const Duration(milliseconds: 1500), () {
@@ -466,7 +474,10 @@ class VideoItemState extends State<VideoItem>
   }
 
   void _togglePlayPause() {
-    if (_isNotesOpen) {
+    // If the notes sheet is open (either via local state or the cubit),
+    // tapping the video area should close it instead of toggling playback.
+    final notesOpen = _isNotesOpen || context.read<AppCubit>().state.isNotesOpened;
+    if (notesOpen) {
       _closeNotesSheet();
       return;
     }
@@ -510,12 +521,19 @@ class VideoItemState extends State<VideoItem>
     super.didUpdateWidget(oldWidget);
 
     if (widget.isActive != oldWidget.isActive) {
-      widget.isActive ? _player.play() : _player.pause();
-
       if (widget.isActive) {
+        // Lazy-open this video's media when it becomes active (deferred
+        // from initState for non-active cached pages).
+        if (!_mediaOpened) {
+          _mediaOpened = true;
+          _player.open(Media(widget.video.filePath));
+        }
+        _player.play();
+
         final isOnHome = context.read<AppCubit>().state.currentNavIndex == 0;
         _syncPipArming(isOnHome: isOnHome);
       } else {
+        _player.pause();
         _syncPipArming(isOnHome: false);
       }
     }
@@ -530,6 +548,7 @@ class VideoItemState extends State<VideoItem>
   }
 
   bool _disposed = false;
+  bool _mediaOpened = false;
 
   @override
   void dispose() {
